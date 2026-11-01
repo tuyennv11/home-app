@@ -1,0 +1,16 @@
+/* Chế độ app thật: bỏ khung iPhone giả và bảng chọn tài khoản của demo, dùng toàn màn hình máy. */
+html.app-mode,html.app-mode body{height:100%}
+html.app-mode body{margin:0;padding:0;display:block;min-height:100dvh;background:#f5eee3;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+html.app-mode .account-panel{display:none!important}
+html.app-mode .stage{display:block;width:100%;gap:0}
+html.app-mode .phone{width:100vw;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}
+html.app-mode .phone>.status,html.app-mode .phone>.island{display:none}
+/* Vùng an toàn: tai thỏ / Dynamic Island ở trên, thanh vuốt ở dưới */
+html.app-mode .content{padding-top:calc(env(safe-area-inset-top) + 10px)}
+html.app-mode .tabs{bottom:calc(12px + env(safe-area-inset-bottom))}
+html.app-mode .login-screen{padding-top:env(safe-area-inset-top);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+html.app-mode .modal-overlay{padding-top:env(safe-area-inset-top)}
+/* Đang ở trang đăng nhập: ẩn hẳn mọi thứ phía sau (không thấy, không bấm, không dùng phím Tab tới được) */
+html.app-mode .phone:has(#loginScreen)>:not(#loginScreen){display:none!important}
+/* Bỏ vạch "thanh vuốt" giả của khung demo; điện thoại thật đã có sẵn */
+html.app-mode .tabs::after{display:none}
