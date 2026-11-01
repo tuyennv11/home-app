@@ -14,14 +14,14 @@
     };
   }
 })();
-// Khi trang đăng nhập đang mở: khoá mọi phần khác của app (kể cả bảng bật lên mở sau đó).
+// Khi trang đăng nhập đang mở: khoá mọi phần khác của app (kể cả bảng bật lên mở sau đó), trừ cửa sổ chính sách / điều khoản.
 (function () {
   var phone = document.querySelector('.phone');
   if (!phone) return;
   function lock() {
     var login = document.getElementById('loginScreen');
     Array.prototype.forEach.call(phone.children, function (el) {
-      if (el.id === 'loginScreen') return;
+      if (el.id === 'loginScreen' || el.querySelector('.legal-sheet')) return;
       if (login) el.setAttribute('inert', ''); else el.removeAttribute('inert');
     });
   }

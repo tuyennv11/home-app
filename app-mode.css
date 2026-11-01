@@ -11,6 +11,6 @@ html.app-mode .tabs{bottom:calc(12px + env(safe-area-inset-bottom))}
 html.app-mode .login-screen{padding-top:env(safe-area-inset-top);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 html.app-mode .modal-overlay{padding-top:env(safe-area-inset-top)}
 /* Đang ở trang đăng nhập: ẩn hẳn mọi thứ phía sau (không thấy, không bấm, không dùng phím Tab tới được) */
-html.app-mode .phone:has(#loginScreen)>:not(#loginScreen):not(.modal-overlay){display:none!important}
+html.app-mode .phone:has(#loginScreen)>:not(#loginScreen):not(:has(.legal-sheet)){display:none!important}
 /* Bỏ vạch "thanh vuốt" giả của khung demo; điện thoại thật đã có sẵn */
 html.app-mode .tabs::after{display:none}
