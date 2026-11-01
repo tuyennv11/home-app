@@ -66,7 +66,7 @@
   var original = new WeakMap(), ATTRS = ['placeholder', 'title', 'aria-label'];
   function skip(node) {
     var el = node.nodeType === 1 ? node : node.parentElement;
-    return !el || el.closest('#loginScreen,script,style,textarea,select.account-select,.account-panel');
+    return !el || el.closest('#loginScreen,.legal-sheet,script,style,textarea,select.account-select,.account-panel');
   }
   function fixText(node) {
     if (skip(node)) return;
