@@ -160,7 +160,12 @@
     var before = snapshot();
     window.HOME_DB.pullAll().then(function (p) {
       if (p.error) return;
-      if (snapshot() !== before || p.changed) location.reload();
+      if (snapshot() === before && !p.changed) return;
+      // Chỉ mở lại khi đã qua 1 phút kể từ lần trước, không để app tự tải lại liên tục
+      var last = 0; try { last = Number(sessionStorage.getItem('homeRealReloadAt')) || 0; } catch (e) {}
+      if (Date.now() - last < 60000) return;
+      try { sessionStorage.setItem('homeRealReloadAt', String(Date.now())); } catch (e) {}
+      location.reload();
     });
   }
   setTimeout(refresh, 1500);
