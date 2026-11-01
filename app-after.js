@@ -33,13 +33,16 @@
   document.addEventListener('submit', function (event) {
     var form = event.target;
     if (!form || !form.closest || !form.closest('#loginScreen')) return;
-    if (form.dataset.demoFallback === '1') { delete form.dataset.demoFallback; return; } // để code demo xử lý
-    if (!window.HOME_DB) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault(); event.stopImmediatePropagation(); // app thật chỉ đăng nhập qua máy chủ
     var box = form.closest('#loginScreen'), btn = box.querySelector('.login-submit');
     var phone = box.querySelector('#loginPhone').value, password = box.querySelector('#loginPassword').value;
-    var key = (typeof phoneKey === 'function') ? phoneKey(phone, loginCountry()) : '';
-    if (!key || !password) { form.dataset.demoFallback = '1'; form.requestSubmit(); return; }
+    var region = loginCountry(), digits = phone.replace(/\D/g, '');
+    var show = function (error) { renderLoginScreen({ phone: phone, cc: region, error: error }); };
+    if (!digits || !password) return show('empty');
+    // Gõ cả mã vùng mà không có dấu +: 84900111222 cũng là +84
+    var key = phoneKey(digits.indexOf(region) === 0 && digits.length >= region.length + 9 ? '+' + digits : phone, region);
+    if (!key || key.length < 9 || key.length > 15) return show('badPhone');
+    if (!window.HOME_DB) return show('network');
     var wait = loginLockMinutes(key);
     if (wait) return renderLoginScreen({ phone: phone, cc: loginCountry(), error: 'tooMany', minutes: wait });
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="login-spin" aria-label="…"></span>'; }
@@ -49,9 +52,7 @@
         if (res.me) { window.HOME_DB.signOut(); return renderLoginScreen({ phone: phone, cc: cc, error: res.me.trang_thai === 'tam_khoa' ? 'locked' : 'deleted' }); }
         // Sai mật khẩu thì máy chủ trả mã 400; còn lại là lỗi mạng, không tính vào số lần sai
         if (res.error && res.error.status !== 400) {
-          if (btn) { btn.disabled = false; renderLoginScreen({ phone: phone, cc: cc }); }
-          if (typeof appToast === 'function') appToast('Chưa kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
-          return;
+          return show('network');
         }
         var locked = noteLoginFail(key);
         return renderLoginScreen({ phone: phone, cc: cc, error: locked ? 'tooMany' : 'wrong', minutes: locked });
@@ -61,21 +62,20 @@
       var roleKey = res.me.vai_tro === 'chu_nha' ? ownerKey : res.me.vai_tro === 'quan_ly' ? 'manager|' + res.me.ten + '|' : null;
       try { localStorage.setItem('homeServerUser', JSON.stringify({ id: res.me.id, vai_tro: res.me.vai_tro, ten: res.me.ten, phone: res.me.so_dien_thoai })); } catch (e) {}
       // Tải dữ liệu thật về máy rồi mở lại app ở chế độ dữ liệu thật
-      var fail = function (text) {
+      var fail = function (error) {
         try { localStorage.removeItem('homeServerUser'); } catch (e) {}
-        if (btn) btn.disabled = false;
         window.HOME_DB.signOut();
-        if (typeof appToast === 'function') appToast(text);
+        show(error);
       };
       var whichRoom = res.me.vai_tro === 'khach' ? window.HOME_DB.myRoom(res.me.id) : Promise.resolve({});
       whichRoom.then(function (place) {
-        if (place.error) return fail('Chưa tải được dữ liệu từ máy chủ: ' + place.error);
+        if (place.error) return fail('loadFail');
         if (res.me.vai_tro === 'khach') {
-          if (!place.room) return fail('Tài khoản chưa được gắn với phòng nào. Liên hệ quản lý.');
+          if (!place.room) return fail('noRoom');
           roleKey = 'tenant|' + res.me.ten + '|' + place.room;
         }
         window.HOME_DB.pullAll().then(function (p) {
-          if (p.error) return fail('Chưa tải được dữ liệu từ máy chủ: ' + p.error);
+          if (p.error) return fail('loadFail');
           try { sessionStorage.setItem('homeRealToast', 'Đã tải dữ liệu: ' + p.houses + ' căn · ' + p.rooms + ' phòng'); } catch (e) {}
           try { localStorage.setItem('homeAppSignedIn', '1'); localStorage.removeItem('homeSignedOut'); localStorage.setItem('homeAccount', roleKey); } catch (e) {}
           location.reload();
