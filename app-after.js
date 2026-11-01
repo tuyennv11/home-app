@@ -46,7 +46,12 @@
     var wait = loginLockMinutes(key);
     if (wait) return renderLoginScreen({ phone: phone, cc: loginCountry(), error: 'tooMany', minutes: wait });
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="login-spin" aria-label="…"></span>'; }
+    // Số Việt Nam ở căn Campuchia có thể được lưu +855 và ngược lại: sai thì thử mã vùng còn lại
+    var other = phoneKey(phone, region === '84' ? '855' : '84');
     window.HOME_DB.signIn(key, password).then(function (res) {
+      if (res.error && res.error.status === 400 && other !== key && phone.trim().charAt(0) !== '+') return window.HOME_DB.signIn(other, password);
+      return res;
+    }).then(function (res) {
       if (res.error || !res.me || res.me.trang_thai !== 'hoat_dong') {
         var cc = loginCountry();
         if (res.me) { window.HOME_DB.signOut(); return renderLoginScreen({ phone: phone, cc: cc, error: res.me.trang_thai === 'tam_khoa' ? 'locked' : 'deleted' }); }
