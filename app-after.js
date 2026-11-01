@@ -82,7 +82,7 @@
         window.HOME_DB.pullAll().then(function (p) {
           if (p.error) return fail('loadFail');
           try { sessionStorage.setItem('homeRealToast', 'Đã tải dữ liệu: ' + p.houses + ' căn · ' + p.rooms + ' phòng'); } catch (e) {}
-          try { localStorage.setItem('homeAppSignedIn', '1'); localStorage.removeItem('homeSignedOut'); localStorage.setItem('homeAccount', roleKey); } catch (e) {}
+          try { localStorage.setItem('homeAppSignedIn', '1'); localStorage.removeItem('homeSignedOut'); localStorage.setItem('homeAccount', roleKey); localStorage.setItem('homeServerUser', JSON.stringify({ id: res.me.id, vai_tro: res.me.vai_tro, ten: res.me.ten, phone: res.me.so_dien_thoai, key: roleKey })); } catch (e) {}
           location.reload();
         });
       });
@@ -127,6 +127,26 @@
     });
     return result;
   };
+})();
+
+// Quản lý và khách chỉ được ở đúng tài khoản của mình, không bao giờ rơi về vai chủ nhà hay người khác
+(function () {
+  if (!window.HOME_REAL) return;
+  var me = null;
+  try { me = JSON.parse(localStorage.getItem('homeServerUser') || 'null'); } catch (e) {}
+  if (!me || me.vai_tro === 'chu_nha') return;
+  var mine = me.key || (me.vai_tro === 'quan_ly' ? 'manager|' + me.ten + '|' : '');
+  if (!mine) return window.signOut(); // phiên cũ chưa ghi tài khoản: đăng nhập lại
+  var select = document.getElementById('accountSelect'), base = window.setAccount;
+  function keep() {
+    if (select && !Array.prototype.some.call(select.options, function (o) { return o.value === mine; })) {
+      var option = document.createElement('option'); option.value = mine; option.textContent = me.ten; select.append(option);
+    }
+    if (select) select.value = mine;
+  }
+  window.setAccount = function () { keep(); return base.call(this, mine); };
+  keep();
+  if (localStorage.getItem('homeAccount') !== mine) window.setAccount(mine);
 })();
 
 // Chế độ dữ liệu thật: báo đã tải; mỗi lần mở app thì tải lại căn + phòng (nếu đổi thì mở lại)
