@@ -19,7 +19,7 @@
   // Các khoá này đổi thì gửi người dùng / phân công lên máy chủ. Code demo ghi lại cả khi không đổi nên phải so trước.
   var WATCH = { homeUsers: 1, homePropertyManagers: 1, homeRoomManagers: 1 };
   var DATA = {};
-  ('homeTenantEvents homeContracts homeRoomInventories homeRoomStatuses homeRoomUtilityBilling homeRoomUtilityOverride homeMeterReadings homeCheckouts homeMoveOutRequests homeRentCharges homeInventoryRecords homeTenantInvites homeGuestStays homeRoomHolds homeComplaints homeViolations homeNotices homeExpenseRecords homeCashExtras homeSpendRequests homeMaintenancePlans homeRoomApprovalRequests homeTenantCredits homeDeleteRequests homeSettlements homeActionStates homeManagerRates homeHouseSettings homeAmenityCatalog homeDeletedRooms homeRoomManagerLog').split(' ').forEach(function (k) { DATA[k] = 1; });
+  ('homeUserHistory homeTenantEvents homeContracts homeRoomInventories homeRoomStatuses homeRoomUtilityBilling homeRoomUtilityOverride homeMeterReadings homeCheckouts homeMoveOutRequests homeRentCharges homeInventoryRecords homeTenantInvites homeGuestStays homeRoomHolds homeComplaints homeViolations homeNotices homeExpenseRecords homeCashExtras homeSpendRequests homeMaintenancePlans homeRoomApprovalRequests homeTenantCredits homeDeleteRequests homeSettlements homeActionStates homeManagerRates homeHouseSettings homeAmenityCatalog homeDeletedRooms homeRoomManagerLog').split(' ').forEach(function (k) { DATA[k] = 1; });
   P.getItem = function (k) { return g.call(this, this === localStorage ? target(k) : k); };
   P.setItem = function (k, v) {
     if (this !== localStorage) return st.call(this, k, v);
