@@ -170,3 +170,52 @@
   }
   setTimeout(refresh, 1500);
 })();
+
+// Lần đầu vào app: chấp nhận Điều khoản và Chính sách; khách đồng ý riêng về ảnh giấy tờ. Lưu trên máy chủ.
+(function () {
+  if (!window.HOME_REAL) return;
+  var VERSION = '2026-11-02';
+  var TEXT = {
+    vi: { head: 'Trước khi dùng Home', terms: 'Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.', id: 'Tôi đồng ý để Home lưu ảnh giấy tờ tuỳ thân của tôi, là dữ liệu cá nhân nhạy cảm, trên máy chủ ở Singapore để lập hợp đồng và khai báo cư trú. Tôi có thể rút lại bằng cách gửi email cho Home.', privacy: 'Xem Chính sách', read: 'Xem Điều khoản', ok: 'Đồng ý và tiếp tục', no: 'Đăng xuất', err: 'Chưa lưu được. Kiểm tra mạng rồi thử lại.' },
+    en: { head: 'Before you use Home', terms: 'I have read and agree to the Terms of Use and Privacy Policy.', id: 'I agree that Home may store my ID photos, which are sensitive personal data, on servers in Singapore for my lease and residence registration. I can withdraw by emailing Home.', privacy: 'View Policy', read: 'View Terms', ok: 'Agree and continue', no: 'Sign out', err: 'Could not save. Check your connection and try again.' },
+    km: { head: 'មុនពេលប្រើ Home', terms: 'ខ្ញុំបានអាន និងយល់ព្រមនឹងលក្ខខណ្ឌប្រើប្រាស់ និងគោលការណ៍ឯកជនភាព។', id: 'ខ្ញុំយល់ព្រមឱ្យ Home រក្សាទុករូបថតឯកសារអត្តសញ្ញាណរបស់ខ្ញុំ ដែលជាទិន្នន័យផ្ទាល់ខ្លួនរសើប នៅលើម៉ាស៊ីនមេក្នុងប្រទេសសិង្ហបុរី សម្រាប់កិច្ចសញ្ញា និងការប្រកាសស្នាក់នៅ។ ខ្ញុំអាចដកវិញដោយផ្ញើអ៊ីមែលទៅ Home។', privacy: 'មើលគោលការណ៍', read: 'មើលលក្ខខណ្ឌ', ok: 'យល់ព្រម និងបន្ត', no: 'ចាកចេញ', err: 'មិនអាចរក្សាទុកបានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយសាកម្ដងទៀត។' }
+  };
+  function start() {
+    var me = null;
+    try { me = JSON.parse(localStorage.getItem('homeServerUser') || 'null'); } catch (e) {}
+    if (!me) return;
+    window.HOME_DB.consents(me.id, VERSION).then(function (have) {
+      if (!have) return; // chưa có bảng hoặc mất mạng: không chặn
+      var needId = me.vai_tro === 'khach' && have.indexOf('giay_to') < 0;
+      if (have.indexOf('dieu_khoan') >= 0 && !needId) return;
+      var t = TEXT[loginLang()] || TEXT.vi, overlay = document.createElement('div');
+      overlay.className = 'modal-overlay'; overlay.style.zIndex = 55;
+      overlay.innerHTML = '<form class="modal-sheet" novalidate><div class="modal-head">' + t.head + '</div>' +
+        '<div class="modal-actions"><button type="button" data-doc="privacy">' + t.privacy + '</button><button type="button" data-doc="terms">' + t.read + '</button></div>' +
+        '<label class="user-check"><input type="checkbox" name="terms"><span>' + t.terms + '</span></label>' +
+        (needId ? '<label class="user-check"><input type="checkbox" name="id"><span>' + t.id + '</span></label>' : '') +
+        '<p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-no>' + t.no + '</button><button type="submit" class="save" disabled>' + t.ok + '</button></div></form>';
+      appendToPhone(overlay);
+      var form = overlay.querySelector('form'), save = form.querySelector('.save');
+      form.addEventListener('change', function () { save.disabled = !form.terms.checked || (needId && !form.id.checked); });
+      form.addEventListener('click', function (event) {
+        var doc = event.target.closest('[data-doc]');
+        if (doc) openLegal(doc.dataset.doc);
+        if (event.target.closest('[data-no]')) window.signOut();
+      });
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var rows = [];
+        if (have.indexOf('dieu_khoan') < 0) rows.push({ loai: 'dieu_khoan', noi_dung: t.terms });
+        if (needId) rows.push({ loai: 'giay_to', noi_dung: t.id });
+        save.disabled = true;
+        window.HOME_DB.saveConsents(me.id, VERSION, rows).then(function (r) {
+          if (!r.error) return overlay.remove();
+          save.disabled = false;
+          var box = form.querySelector('.user-error'); box.textContent = t.err; box.hidden = false;
+        });
+      });
+    });
+  }
+  if (window.HOME_DB) setTimeout(start, 800); else window.addEventListener('home-db-ready', function () { setTimeout(start, 800); }, { once: true });
+})();
