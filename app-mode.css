@@ -16,3 +16,5 @@ html.app-mode .phone:has(#loginScreen)>:not(#loginScreen):not(:has(.legal-sheet)
 html.app-mode .tabs::after{display:none}
 /* Đăng nhập chỉ cần gõ số: app tự tìm tài khoản, không hỏi quốc gia */
 html.app-mode .login-cc{display:none}
+html.app-mode .app-fb-fab{bottom:calc(114px + env(safe-area-inset-bottom))}
+html.app-mode .phone:has(.app-fb-fab:not([hidden])) .content{padding-bottom:calc(170px + env(safe-area-inset-bottom))}
