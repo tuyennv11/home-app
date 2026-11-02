@@ -83,8 +83,9 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
         }
         window.HOME_DB.pullAll().then(function (p) {
           if (p.error) return fail('loadFail');
-          try { sessionStorage.setItem('homeRealToast', 'Đã tải dữ liệu: ' + p.houses + ' căn · ' + p.rooms + ' phòng'); } catch (e) {}
-          try { localStorage.setItem('homeAppSignedIn', '1'); localStorage.removeItem('homeSignedOut'); localStorage.setItem('homeAccount', roleKey); localStorage.setItem('homeServerUser', JSON.stringify({ id: res.me.id, vai_tro: res.me.vai_tro, ten: res.me.ten, phone: res.me.so_dien_thoai, key: roleKey })); } catch (e) {}
+          // Khách không được thấy số căn, số phòng
+          if (res.me.vai_tro !== 'khach') try { sessionStorage.setItem('homeRealToast', 'Đã tải dữ liệu: ' + p.houses + ' căn · ' + p.rooms + ' phòng'); } catch (e) {}
+          try { sessionStorage.setItem('homeRealReloadAt', String(Date.now())); localStorage.setItem('homeAppSignedIn', '1'); localStorage.removeItem('homeSignedOut'); localStorage.setItem('homeAccount', roleKey); localStorage.setItem('homeServerUser', JSON.stringify({ id: res.me.id, vai_tro: res.me.vai_tro, ten: res.me.ten, phone: res.me.so_dien_thoai, key: roleKey })); } catch (e) {}
           location.reload();
         });
       });
@@ -109,6 +110,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var me = serverUser();
     if (!me || !window.HOME_DB || !key || !pw) return result;
     if (selfChanged) {
+      // Mật khẩu người dùng tự đặt không để lại trên máy
+      try { var saved = readPasswords(); if (saved[key]) { saved[key].pw = ''; localStorage.setItem('homePasswords', JSON.stringify(saved)); } } catch (e) {}
       window.HOME_DB.changeOwnPassword(pw).then(function (r) { toast(r.error ? 'Máy chủ chưa đổi được mật khẩu: ' + r.error : 'Đã đổi mật khẩu trên máy chủ'); });
       return result;
     }
@@ -169,7 +172,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (snapshot() === before && !p.changed) return;
       // Chỉ mở lại khi đã qua 1 phút kể từ lần trước, không để app tự tải lại liên tục
       var last = 0; try { last = Number(sessionStorage.getItem('homeRealReloadAt')) || 0; } catch (e) {}
-      if (Date.now() - last < 60000) return;
+      if (Date.now() - last < 60000 || document.querySelector('.modal-overlay')) return;
       try { sessionStorage.setItem('homeRealReloadAt', String(Date.now())); } catch (e) {}
       location.reload();
     });

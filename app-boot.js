@@ -4,6 +4,10 @@
   window.HOME_APP_MODE = true;
   try {
     // App thật luôn mở trang đăng nhập nếu chưa đăng nhập trên máy này.
-    if (!localStorage.getItem('homeAppSignedIn')) localStorage.setItem('homeSignedOut', '1');
+    // Mất thông tin tài khoản máy chủ cũng vậy, không bao giờ rơi về dữ liệu mẫu.
+    if (!localStorage.getItem('homeServerUser')) {
+      localStorage.removeItem('homeAppSignedIn');
+      localStorage.setItem('homeSignedOut', '1');
+    }
   } catch (e) {}
 })();
