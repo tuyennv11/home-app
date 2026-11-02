@@ -127,7 +127,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
         var list = readUsers(), target = list.find(function (u) { return u.key === key; });
         if (target && r.id && !target.uuid) { target.uuid = r.id; saveUsers(list); }
         // Tài khoản xong rồi mới gửi được phần giao căn, giao phòng
-        window.HOME_DB.pushPeople().then(function (p) { if (p.error) toast('Chưa lưu được phân công lên máy chủ: ' + p.error); });
+        if (me.vai_tro === 'chu_nha') window.HOME_DB.pushPeople().then(function (p) { if (p.error) toast('Chưa lưu được phân công lên máy chủ: ' + p.error); });
         if (r.id && vaiTro === 'khach' && user.room) window.HOME_DB.linkTenantRoom(r.id, user.room).then(function (l) { if (l.error) toast('Chưa gắn được khách vào phòng: ' + l.error); });
       }
     });
