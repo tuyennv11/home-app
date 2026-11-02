@@ -117,13 +117,17 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var vaiTro = role === 'manager' ? 'quan_ly' : role === 'tenant' ? 'khach' : null;
     var phone = user && user.phone;
     if (!vaiTro || !phone) { toast('Chưa có số điện thoại nên chưa tạo được tài khoản trên máy chủ'); return result; }
+    window.__homeSavingAccount = (window.__homeSavingAccount || 0) + 1;
     window.HOME_DB.saveAccount({ phoneKey: phoneKey(phone, '84'), name: user.name, role: vaiTro, password: pw }).then(function (r) {
+      window.__homeSavingAccount--;
       if (!r || r.error) toast('Máy chủ chưa tạo được tài khoản: ' + ((r && r.error) || 'lỗi không rõ'));
       else {
         toast(r.da_co ? 'Đã đặt lại mật khẩu trên máy chủ cho ' + user.name : 'Đã tạo tài khoản trên máy chủ cho ' + user.name);
         // Ghi lại mã trên máy chủ, để phân công của người này gửi lên được
         var list = readUsers(), target = list.find(function (u) { return u.key === key; });
         if (target && r.id && !target.uuid) { target.uuid = r.id; saveUsers(list); }
+        // Tài khoản xong rồi mới gửi được phần giao căn, giao phòng
+        window.HOME_DB.pushPeople().then(function (p) { if (p.error) toast('Chưa lưu được phân công lên máy chủ: ' + p.error); });
         if (r.id && vaiTro === 'khach' && user.room) window.HOME_DB.linkTenantRoom(r.id, user.room).then(function (l) { if (l.error) toast('Chưa gắn được khách vào phòng: ' + l.error); });
       }
     });
