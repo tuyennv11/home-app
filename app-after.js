@@ -29,6 +29,8 @@
   lock();
 })();
 // Đăng nhập thật qua Supabase. App thật không còn tài khoản mẫu.
+// Không hỏi mã vùng: gõ số là đủ, sai thì app tự thử mã vùng còn lại
+if (typeof loginCountry === 'function') window.loginCountry = function () { return '84'; };
 (function () {
   document.addEventListener('submit', function (event) {
     var form = event.target;

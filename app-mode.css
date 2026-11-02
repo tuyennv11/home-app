@@ -14,3 +14,5 @@ html.app-mode .modal-overlay{padding-top:env(safe-area-inset-top)}
 html.app-mode .phone:has(#loginScreen)>:not(#loginScreen):not(:has(.legal-sheet)){display:none!important}
 /* Bỏ vạch "thanh vuốt" giả của khung demo; điện thoại thật đã có sẵn */
 html.app-mode .tabs::after{display:none}
+/* Đăng nhập chỉ cần gõ số: app tự tìm tài khoản, không hỏi quốc gia */
+html.app-mode .login-cc{display:none}
