@@ -7,7 +7,7 @@ html.app-mode .phone{width:100vw;height:100dvh;min-height:0;border:0;border-radi
 html.app-mode .phone>.status,html.app-mode .phone>.island{display:none}
 /* Vùng an toàn: tai thỏ / Dynamic Island ở trên, thanh vuốt ở dưới */
 html.app-mode .content{padding-top:calc(env(safe-area-inset-top) + 10px)}
-html.app-mode .tabs{bottom:calc(12px + env(safe-area-inset-bottom))}
+html.app-mode .tabs{bottom:calc(14px + env(safe-area-inset-bottom))}
 html.app-mode .login-screen{padding-top:env(safe-area-inset-top);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 html.app-mode .modal-overlay{padding-top:env(safe-area-inset-top)}
 /* Đang ở trang đăng nhập: ẩn hẳn mọi thứ phía sau (không thấy, không bấm, không dùng phím Tab tới được) */

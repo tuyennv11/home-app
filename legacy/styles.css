@@ -207,6 +207,24 @@ label.tenant-tabs-note:has(#contractAgree){display:flex;align-items:flex-start;g
 .phone .tabs .tab{flex:0 0 66px}
 .head.has-actions .head-badge{display:inline-block;margin:6px 0 0}
 .head.has-actions:has(> .head-brand) .head-actions{margin-top:8px}
+/* Thanh tab nổi kiểu viên thuốc: chỉ biểu tượng, tab đang mở có nền xanh nhạt và biểu tượng tô đậm */
+.phone .tabs{left:12px;right:12px;bottom:18px;height:64px;padding:6px;gap:2px;border-radius:999px;align-items:center;justify-content:space-between;background:#fffffff5;border:1px solid #e8e2d8;box-shadow:0 8px 26px #3a2a1426,0 1px 3px #3a2a141a}
+.phone .tabs::after{display:none}
+.phone .tabs .tab{flex:1 1 0;height:52px;border-radius:999px;justify-content:center;align-items:center;gap:0;font-size:0;color:#1d211f;transition:background .2s}
+.phone .tabs .tab i{width:auto;height:auto;background:none!important;box-shadow:none!important;color:inherit}
+.phone .tabs .tab i::before{width:27px;height:27px}
+.phone .tabs .tab.active{background:#e2efe7;color:#0f4a35}
+.phone .tabs .tab.active i{color:#0f4a35}
+.phone .tabs .tab.active i::before{-webkit-mask-image:var(--ic-on,var(--ic));mask-image:var(--ic-on,var(--ic))}
+.phone .tabs .tab:active{transform:scale(.94)}
+body[data-role=tenant] .phone .tabs{left:50%;right:auto;width:180px;margin-left:-90px}
+.tabs .tab[data-id=home]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='1.7' stroke-linejoin='round'><rect x='3.5' y='3.5' width='7' height='7' rx='2'/><rect x='13.5' y='3.5' width='7' height='7' rx='2'/><rect x='3.5' y='13.5' width='7' height='7' rx='2'/><rect x='13.5' y='13.5' width='7' height='7' rx='2'/></svg>")}
+.tabs .tab[data-id=rooms]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' fill-rule='evenodd' d='M2.7 10.2 12 2.8l9.3 7.4V19a2.4 2.4 0 0 1-2.4 2.4H5.1A2.4 2.4 0 0 1 2.7 19zM9.8 21.4v-5.6a.6.6 0 0 1 .6-.6h3.2a.6.6 0 0 1 .6.6v5.6z'/></svg>")}
+.tabs .tab[data-id=finance]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12h18M7.5 7.5 3 12l4.5 4.5M16.5 7.5 21 12l-4.5 4.5'/></svg>")}
+.tabs .tab[data-id=reports]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='1.7' stroke-linejoin='round'><rect x='4' y='11' width='4' height='9' rx='1.5'/><rect x='10' y='4' width='4' height='16' rx='1.5'/><rect x='16' y='8' width='4' height='12' rx='1.5'/></svg>")}
+.tabs .tab[data-id=users]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='1.7' stroke-linejoin='round'><circle cx='12' cy='8' r='4'/><path d='M4.5 20.5c.9-3.9 3.9-6 7.5-6s6.6 2.1 7.5 6z'/></svg>")}
+body[data-role=tenant] .tabs .tab[data-id=home]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' fill-rule='evenodd' d='M6 2.7h8.3L18.8 7.2v13.3a.8.8 0 0 1-.8.8H6a.8.8 0 0 1-.8-.8V3.5a.8.8 0 0 1 .8-.8zM9 11.2a.8.8 0 0 0 0 1.6h6a.8.8 0 0 0 0-1.6zm0 4a.8.8 0 0 0 0 1.6h6a.8.8 0 0 0 0-1.6z'/></svg>")}
+body[data-role=tenant] .tabs .tab[data-id=rooms]{--ic-on:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' fill-rule='evenodd' d='M6 2.7h12a.8.8 0 0 1 .8.8v17a.8.8 0 0 1-.8.8H6a.8.8 0 0 1-.8-.8v-17a.8.8 0 0 1 .8-.8zM9 7.2a.8.8 0 0 0 0 1.6h6a.8.8 0 0 0 0-1.6zm0 3.5a.8.8 0 0 0 0 1.6h6a.8.8 0 0 0 0-1.6zm.6 4.2a.8.8 0 0 0-1.1 1.1l2 2a.8.8 0 0 0 1.1 0l4-4a.8.8 0 0 0-1.1-1.1L11 16.9z'/></svg>")}
 .head.has-actions>.head-brand{flex:1 1 0;min-width:0}
 .head.has-actions>.head-brand>div{min-width:0}
 .head.has-actions #tenantGreeting{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
