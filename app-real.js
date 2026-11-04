@@ -7,7 +7,7 @@
   window.HOME_REAL = true;
   // Ngăn lưu trữ riêng cho dữ liệu thật: mọi khoá "home…" / "active…" của app đọc / ghi vào "real:<khoá>".
   // Dữ liệu thử cũ trên máy giữ nguyên, không xoá, chỉ không đọc tới nữa.
-  var SHARED = { homeServerUser: 1, homeRealHouses: 1, homeRealRooms: 1, homeRealRoomsBase: 1, homeAppSignedIn: 1, homeSignedOut: 1, homeAccount: 1, homeLoginCC: 1, homeLang: 1, homeLoginFails: 1 };
+  var SHARED = { homeServerUser: 1, homeRealHouses: 1, homeRealRooms: 1, homeRealRoomsBase: 1, homeRealHousesBase: 1, homeAppSignedIn: 1, homeSignedOut: 1, homeAccount: 1, homeLoginCC: 1, homeLang: 1, homeLoginFails: 1 };
   // Mỗi tài khoản một ngăn riêng, để người sau đăng nhập trên cùng máy không thấy dữ liệu của người trước.
   var PREFIX = 'real:' + String(me.id).slice(0, 8) + ':';
   function ns(key) { key = String(key); return (/^(home|active)/.test(key) && !SHARED[key]) ? PREFIX + key : key; }

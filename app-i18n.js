@@ -24,6 +24,7 @@
     [/^(thứ \S+|chủ nhật), (\d+) tháng (\d+)$/i, function (m) { var d = WEEK[m[1].toLocaleLowerCase('vi')]; return (d ? d[EN ? 0 : 1] : m[1]) + ', ' + m[2] + '/' + m[3]; }],
     [/^tháng (\d+)\/(\d{4})$/i, function (m) { return (EN ? 'Month ' : 'ខែ ') + m[1] + '/' + m[2]; }],
     [/^hạn (\d+\/\d+(?:\/\d+)?)$/i, function (m) { return (EN ? 'Due ' : 'កំណត់ ') + m[1]; }],
+    [/^(quá hạn|hạn) (\d+\/\d+) · còn (.+)$/i, function (m) { var late = /^quá/i.test(m[1]); return (EN ? (late ? 'Overdue ' : 'Due ') + m[2] + ' · ' + m[3] + ' left' : (late ? 'ហួសកំណត់ ' : 'កំណត់ ') + m[2] + ' · នៅសល់ ' + m[3]); }],
     [/^quá hạn (\d+) ngày$/i, function (m) { return EN ? m[1] + ' days overdue' : 'ហួសកំណត់ ' + m[1] + ' ថ្ងៃ'; }],
     [/^(\d+) (ngày|món|khoản|căn|phòng|người|hoạt động|việc|lần|đêm|tháng)$/i, function (m) {
       var word = { 'ngày': ['days', 'ថ្ងៃ'], 'món': ['items', 'មុខ'], 'khoản': ['items', 'ខ្ទង់'], 'căn': ['houses', 'ផ្ទះ'], 'phòng': ['rooms', 'បន្ទប់'], 'người': ['people', 'នាក់'], 'hoạt động': ['activities', 'សកម្មភាព'], 'việc': ['tasks', 'កិច្ចការ'], 'lần': ['times', 'ដង'], 'đêm': ['nights', 'យប់'], 'tháng': ['months', 'ខែ'] }[m[2].toLocaleLowerCase('vi')];

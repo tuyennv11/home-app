@@ -93,7 +93,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   }, true);
   var so = window.signOut;
   if (typeof so === 'function') window.signOut = function () {
-    try { ['homeServerUser', 'homeRealHouses', 'homeRealRooms', 'homeRealRoomsBase'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+    try { ['homeServerUser', 'homeRealHouses', 'homeRealRooms', 'homeRealRoomsBase', 'homeRealHousesBase'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
     if (window.HOME_DB) window.HOME_DB.signOut();
     return so.apply(this, arguments);
   };
