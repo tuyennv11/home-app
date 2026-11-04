@@ -67,6 +67,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       clearLoginFails(key);
       var ownerKey = (loginAccounts().find(function (u) { return u.role === 'owner'; }) || {}).key || 'owner|Anh Tuyên|';
       var roleKey = res.me.vai_tro === 'chu_nha' ? ownerKey : res.me.vai_tro === 'quan_ly' ? 'manager|' + res.me.ten + '|' : null;
+      // Căn / phòng còn sót của lần đăng nhập trước (hay tài khoản khác) không được coi là sửa đổi chưa gửi
+      try { ['homeRealHouses', 'homeRealRooms', 'homeRealRoomsBase', 'homeRealHousesBase', 'homeRealRoomIds'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
       try { localStorage.setItem('homeServerUser', JSON.stringify({ id: res.me.id, vai_tro: res.me.vai_tro, ten: res.me.ten, phone: res.me.so_dien_thoai })); } catch (e) {}
       // Tải dữ liệu thật về máy rồi mở lại app ở chế độ dữ liệu thật
       var fail = function (error) {
@@ -165,6 +167,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   try { var t = sessionStorage.getItem('homeRealToast'); if (t) { sessionStorage.removeItem('homeRealToast'); setTimeout(function () { if (typeof appToast === 'function') appToast(t); }, 600); } } catch (e) {}
   function refresh() {
     if (!window.HOME_DB) return window.addEventListener('home-db-ready', refresh, { once: true });
+    // Vừa đăng nhập xong đã tải đủ dữ liệu: không tải lại ngay lần nữa (tải định kỳ 60 giây vẫn chạy)
+    try { if (Date.now() - (Number(sessionStorage.getItem('homeRealReloadAt')) || 0) < 20000) return; } catch (e) {}
     var snapshot = function () { return ['homeRealHouses', 'homeRealRooms', 'homeUsers', 'homePropertyManagers', 'homeRoomManagers'].map(function (k) { return localStorage.getItem(k) || ''; }).join('|'); };
     var before = snapshot();
     window.HOME_DB.pullAll().then(function (p) {
