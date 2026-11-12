@@ -16,3 +16,258 @@ html.app-mode .phone:has(#loginScreen)>:not(#loginScreen):not(:has(.legal-sheet)
 html.app-mode .tabs::after{display:none}
 /* Đăng nhập chỉ cần gõ số: app tự tìm tài khoản, không hỏi quốc gia */
 html.app-mode .login-cc{display:none}
+
+/* Chữ Khmer có chân chữ (ជើង) nằm thấp: dòng một hàng có cắt chữ cần cao hơn để không mất phần dưới */
+html[lang="km"] :is(.title, .rowtitle, .rb-title, .ht-name span, .work-title, .work-sub, .house-block-name, .user-sub, #tenantGreeting) { line-height: 1.6 !important; }
+
+/* Ô bắt buộc */
+label.req::after { content: " *"; color: #d0342c; font-weight: 700; }
+
+/* Giá điện nước do chủ nhà đặt cho cả căn: chỉ để xem */
+input[data-house-price][readonly] { background: #efe9df !important; color: #5f655f !important; }
+
+.ht-tools { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }
+#managementOverview .ht-gear { width: 44px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: rgba(15, 53, 39, .08); color: var(--ink, #0f3527); display: grid; place-items: center; cursor: pointer; }
+#managementOverview .ht-gear svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#managementOverview .ht-tools .ht-add i { width: 44px; height: 28px; border-radius: 8px; font-size: 20px; }
+#managementOverview .ht-tools { gap: 6px; }
+
+/* ===== Thanh tab dưới (11/11, gom ý 5 lượt phản biện) =====
+   Kính mờ màu kem ấm của app, gọn theo số tab, nằm giữa; một màu xanh thương hiệu; ô chọn ôm biểu tượng. */
+html.app-mode .phone .tabs { left: 0 !important; right: 0 !important; margin-left: auto !important; margin-right: auto !important; transform: none; width: fit-content !important; min-width: 160px; max-width: calc(100% - 16px); height: 54px !important; padding: 4px 6px !important; gap: 2px !important; justify-content: center !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .04)) !important; -webkit-backdrop-filter: saturate(1.15); backdrop-filter: saturate(1.15);
+  border: 1px solid rgba(255, 255, 255, .75) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .9), inset 0 -1px 1px rgba(255, 255, 255, .35), inset 0 0 0 .5px rgba(15, 53, 39, .08), 0 6px 20px rgba(110, 80, 40, .10) !important;
+  transition: transform .35s cubic-bezier(.2, .9, .25, 1), opacity .25s; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.app-mode .phone .tabs { background: rgba(252, 248, 243, .94) !important; }
+}
+html.app-mode .phone .tabs .tab { flex: 0 1 56px !important; width: 56px; min-width: 44px; height: 46px !important; background: none !important; color: #0f3527 !important; }
+html.app-mode .phone .tabs .tab i { display: grid !important; place-items: center; width: 44px !important; height: 38px !important; border-radius: 999px; transition: background .2s; }
+/* Ký tự cũ trong <i> (▦…) đã ẩn nhưng vẫn chiếm một dòng, đẩy biểu tượng lệch lên: xếp chồng cùng một ô */
+html.app-mode .phone .tabs .tab i { line-height: 0; grid-template-rows: 1fr; grid-template-columns: 1fr; }
+html.app-mode .phone .tabs .tab i::before { grid-area: 1 / 1; }
+html.app-mode .phone .tabs .tab.active { color: #0f3527 !important; }
+html.app-mode .phone .tabs .tab.active i { background: #e3eee6 !important; box-shadow: inset 0 0 0 1px rgba(15, 53, 39, .08) !important; color: #0f3527 !important; }
+/* Lướt xuống thì ẩn, kéo lên thì hiện (như Safari trên iPhone) */
+html.app-mode .phone .tabs.tabs-away { transform: translateY(calc(100% + 40px)); opacity: 0; visibility: hidden; pointer-events: none; transition-duration: .22s, .18s; }
+@media (prefers-reduced-motion: reduce) { html.app-mode .phone .tabs { transition: opacity .15s; } }
+/* Đang gõ (bàn phím mở) thì cất thanh tab để không đè lên ô nhập */
+html.app-mode .phone:has(:is(input, textarea, select):focus) .tabs { display: none; }
+/* Chừa đủ chỗ dưới cùng để dòng cuối không nằm dưới thanh tab */
+html.app-mode .phone .content { padding-bottom: calc(54px + 14px + 20px + env(safe-area-inset-bottom)) !important; }
+
+/* Màn hẹp: hai nút + và bánh răng ở bảng các căn nhỏ lại để không đè cột Phòng */
+@media (max-width: 359px) {
+  #managementOverview .ht-gear, #managementOverview .ht-tools .ht-add i { width: 32px; height: 26px; }
+  #managementOverview .ht-tools { gap: 4px; }
+}
+/* Tấm kính trong: viền sáng quanh biểu tượng để vẫn đọc được khi chữ chạy phía sau */
+html.app-mode .phone .tabs .tab:not(.active) i { filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .95)) drop-shadow(0 0 3px rgba(255, 255, 255, .7)); }
+/* Dài × Rộng ở form phòng */
+.dim-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+.dim-row > div { min-width: 0; }
+.dim-row > span { padding-bottom: 14px; color: #6f746f; font-weight: 700; }
+input.auto-calc[readonly] { background: #efe9df !important; color: #33403a !important; font-weight: 700; }
+
+/* ===== Form nhập gọn (11/11): ô thấp hơn, khoảng cách hẹp hơn, ô ngắn xếp hàng ngang ===== */
+html.app-mode .modal-sheet { padding: 16px 16px 14px; border-radius: 20px; }
+html.app-mode .modal-sheet .modal-head { font-size: 19px; margin-bottom: 4px; }
+html.app-mode .modal-sheet label { margin: 9px 0 3px; font-size: 11px; }
+html.app-mode .modal-sheet input:not([type=checkbox]):not([type=radio]):not([type=file]),
+html.app-mode .modal-sheet select { height: 38px; padding: 0 11px; border-radius: 10px; font-size: 14px; }
+html.app-mode .modal-sheet input[type=file] { padding: 6px 8px; font-size: 13px; border-radius: 10px; }
+html.app-mode .modal-sheet textarea { padding: 8px 11px; border-radius: 10px; }
+html.app-mode .modal-sheet .note { margin: 4px 0 0; font-size: 11px; line-height: 1.35; }
+html.app-mode .modal-sheet .report { padding: 10px 12px 12px; margin-top: 10px; border-radius: 14px; }
+html.app-mode .modal-sheet .report > strong { font-size: 15px; }
+html.app-mode .modal-sheet .report > .note:first-of-type { margin-top: 2px; }
+html.app-mode .modal-sheet .user-section-title { margin-top: 12px; }
+html.app-mode .modal-sheet .modal-actions { margin-top: 14px; gap: 8px; }
+html.app-mode .modal-sheet .modal-actions button { min-height: 42px; padding-top: 0; padding-bottom: 0; }
+html.app-mode .modal-sheet label.user-check { padding: 8px 10px; }
+/* Hàng nhiều ô */
+.f-row { display: flex; gap: 8px; align-items: flex-end; }
+.f-row > .f-cell { flex: 1 1 0; min-width: 0; }
+.f-row > .f-sign { flex: none; padding-bottom: 10px; color: #6f746f; font-weight: 700; }
+.f-cell:has(> input[hidden]), .f-cell:has(> select[hidden]) { display: none; }
+html.app-mode .modal-sheet .report > .note.f-hint { display: none; }
+.f-row label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Điện nước trong hợp đồng / giao phòng: nhãn · cách tính · số tiền trên một hàng */
+html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) { display: grid; grid-template-columns: 38px minmax(0, 1.25fr) minmax(0, 1fr); gap: 6px; align-items: center; margin-top: 6px; }
+html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) > label { margin: 0; }
+html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) > input[hidden] { display: none; }
+html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) > label { grid-column: 1; grid-row: 1; } html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) > select { grid-column: 2; grid-row: 1; } html.app-mode .modal-sheet .utility-row:has(> select[name^=umethod_]) > input { grid-column: 3; grid-row: 1; }
+html.app-mode .modal-sheet label.user-check, html.app-mode .modal-sheet .amenity-row label, html.app-mode .modal-sheet .utility-row label { margin: 0; }
+/* Điện nước ở Thêm phòng: mỗi loại một hàng (tên · cách tính · số tiền), đồng hồ thì thêm hàng chỉ số đầu | đơn giá */
+.u-box .u-line { display: grid; grid-template-columns: 40px minmax(0, 1.1fr) minmax(0, 1fr); gap: 6px; align-items: center; margin-top: 8px; }
+.u-box .u-name { font-size: 13px; font-weight: 700; color: #0f3527; }
+.u-box .u-line > div[hidden], .u-box [data-utility-meter][hidden] { display: none !important; }
+.u-box .u-meter { margin-left: 46px; }
+.u-box .u-meter label { margin-top: 4px !important; }
+.u-box { margin-top: 2px; }
+/* Thẻ chi tiết vật dụng nằm ngay dưới món được tick */
+html.app-mode .modal-sheet .asset-card { margin: 4px 0 8px; padding: 8px 10px 10px; border-radius: 12px; }
+html.app-mode .modal-sheet .asset-card > strong { font-size: 14px; }
+html.app-mode .modal-sheet .asset-card small { display: block; font-size: 11px; color: #6f746f; margin-top: 3px; }
+html.app-mode .modal-sheet .asset-condnote { margin-top: 6px; } html.app-mode .modal-sheet .asset-condnote[hidden] { display: none; }
+html.app-mode .modal-sheet .amenity-pick { padding: 2px 10px; }
+html.app-mode .modal-sheet .amenity-row { padding: 3px 0; min-height: 36px; }
+html.app-mode .modal-sheet .amenity-row label { font-size: 13px; }
+html.app-mode .modal-sheet .amenity-row .qty { height: 30px !important; width: 56px; padding: 0 8px !important; }
+html.app-mode .modal-sheet label.tenant-tabs-note { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 12px; }
+html.app-mode .modal-sheet label.tenant-tabs-note input[type=checkbox] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: #174a37; }
+/* Chủ nhà duyệt phòng mới (gom ý 3 lượt phản biện 12/11) */
+#roomApprovalRequests .rr-head { display: flex; flex-direction: column; gap: 2px; }
+#roomApprovalRequests .rr-head small { font: 500 12px/1.2 -apple-system, system-ui, sans-serif; color: #6f746f; }
+#roomApprovalRequests .rr-count { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: #e3eee6; color: #0f3527; font: 700 12px/1 -apple-system, system-ui, sans-serif; vertical-align: middle; }
+.room-review { padding: 12px 12px 10px !important; }
+.room-review h3 { font-size: 17px; margin: 0; }
+.room-review .rr-badge { font: 700 11px/1 -apple-system, system-ui, sans-serif; padding: 4px 8px; border-radius: 999px; vertical-align: middle; }
+.room-review .rr-badge.wait { background: #f6e6cc; color: #9a5b14; } .room-review .rr-badge.ok { background: #e3eee6; color: #0f3527; } .room-review .rr-badge.no { background: #f8e1df; color: #b83d39; }
+.room-review .rr-sub { margin: 2px 0 6px; font-size: 11.5px; color: #6f746f; }
+.room-review .rr-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.room-review .rr-flags span { font-size: 11px; font-weight: 700; color: #9a3412; background: #fde8d7; border-radius: 8px; padding: 3px 7px; }
+.room-review .rr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.room-review .rr-cell { padding: 6px 0; border-bottom: 1px solid #ebe5db; min-width: 0; }
+.room-review .rr-wide { grid-column: 1 / -1; }
+.room-review .rr-cell small { display: block; font-size: 10.5px; color: #6f746f; }
+.room-review .rr-cell span { display: block; font-size: 13px; font-weight: 700; color: #0f3527; }
+.room-review .rr-cell em { display: block; font-style: normal; font-weight: 500; font-size: 11px; color: #6f746f; }
+.room-review .rr-title { margin: 10px 0 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #174a37; }
+.room-review .rr-item { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid #ebe5db; }
+.room-review .rr-item img, .room-review .rr-nophoto { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: #efe9df; cursor: zoom-in; }
+.room-review .rr-nophoto { display: grid; place-items: center; font-size: 9px; color: #8b8f8a; text-align: center; cursor: default; }
+.room-review .rr-item strong { display: block; font-size: 13px; }
+.room-review .rr-item small { display: block; font-size: 11px; color: #6f746f; }
+.room-review .rr-reason { margin: 8px 0 0; font-size: 12px; color: #b83d39; }
+.room-review .rr-actions { margin-top: 10px; }
+.room-review .rr-actions .rr-reject { background: transparent !important; border: 1px solid #e3d6c4 !important; color: #b83d39 !important; }
+.room-review .rr-reject-form { margin-top: 8px; }
+.room-review .rr-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.room-review .rr-reasons button { border: 1px solid #e3d6c4; background: #fffdf9; border-radius: 999px; padding: 5px 10px; font: 600 12px/1 -apple-system, system-ui, sans-serif; color: #0f3527; }
+.room-review .rr-reject-form textarea { width: 100%; min-height: 56px; border: 1px solid #e6dccd; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; box-sizing: border-box; }
+.room-review .rr-reject-form .form-error { color: #b83d39; font-size: 11px; margin: 2px 0 0; }
+.room-review .rr-reject-form .rr-send { background: #b83d39 !important; color: #fff !important; }
+.room-review .rr-actions .primary { background: #0f3527 !important; color: #fff !important; border: 0 !important; }
+.room-review .rr-reasons button.on { background: #e3eee6; border-color: #0f3527; }
+/* Nút chọn ảnh: kiểu nút của app thay vì nút mặc định của trình duyệt */
+html.app-mode .modal-sheet input[type=file] { font-size: 12px; color: #6f746f; }
+html.app-mode .modal-sheet input[type=file]::file-selector-button { margin-right: 8px; padding: 6px 12px; border: 0; border-radius: 999px; background: #e3eee6; color: #0f3527; font: 700 12px/1 -apple-system, system-ui, sans-serif; cursor: pointer; }
+/* Danh sách phòng: Chờ ký / Chờ giao */
+.rb-pend{display:inline-block;font-size:9.5px;font-weight:700;color:#2f5f8a;background:#e5eef7;border-radius:999px;padding:2px 7px;margin-left:4px;vertical-align:1px}
+/* Thẻ Việc cần làm của khách (xem app-after.js) */
+.tenant-todo{background:#fff;border:1px solid #e6dfd2;border-radius:16px;padding:12px 14px;margin:10px 0}
+.tenant-todo .todo-head{font-size:12px;font-weight:800;margin-bottom:6px}
+.tenant-todo .todo-step{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #f1ece3}
+.tenant-todo .todo-step:first-of-type{border-top:0}
+.tenant-todo .todo-step>div{flex:1;min-width:0}
+.tenant-todo .todo-step strong{display:block;font-size:12px}
+.tenant-todo .todo-step small{display:block;font-size:10px;color:#6f746f;margin-top:2px}
+.tenant-todo .todo-dot{width:18px;height:18px;border-radius:50%;border:1.5px solid #c9c2b5;display:flex;align-items:center;justify-content:center;font-size:10px;flex:none}
+.tenant-todo .done .todo-dot{background:#174a37;border-color:#174a37;color:#fff}
+.tenant-todo .done strong{color:#6f746f}
+.tenant-todo .now .todo-dot{border-color:#174a37;box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 9px #174a37}
+.tenant-todo .todo-btn{flex:none;font-size:11px;font-weight:700;border:0;border-radius:999px;background:#174a37;color:#fff;padding:7px 11px}
+/* Điều khoản hợp đồng (xem app-after.js) */
+.contract-terms{margin:8px 0;font-size:11px}
+.contract-terms>strong{display:block;font-size:12px;margin-bottom:4px}
+.contract-terms-body{max-height:190px;overflow:auto;background:#faf7f1;border:1px solid #e6dfd2;border-radius:12px;padding:8px 10px;line-height:1.45}
+.contract-terms-body p{margin:0 0 5px}
+.terms-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:12px 0 8px;padding:10px 12px;border:1px solid #e6dfd2;border-radius:12px;background:#fff;font-size:12px;font-weight:700;color:inherit}
+.terms-edit{width:100%;box-sizing:border-box;font-size:12px;line-height:1.45}
+
+/* Góc phải: nút Thông báo (biểu tượng chuông) (chấm đỏ khi khách có việc mới); số việc cần xử lý màu đỏ */
+.head-actions .head-btn{width:34px;height:34px;padding:0;border-radius:50%;display:grid;place-items:center;position:relative;flex:none;background:var(--glass-bg);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid #ffffffcc;box-shadow:var(--shadow);color:var(--ink)}
+.head-actions .head-btn.has-dot:after{content:"";position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#e0453a;box-shadow:0 0 0 2px #f5eee3}
+#workCenter .work-count.urgent{background:#e0453a;color:#fff}
+.head-actions .lang-pill .chev{display:none}
+.head-actions .lang-pill{min-width:0}
+/* Số góp ý mới nằm ở góc nút cho hàng Việc cần xử lý không bị rớt dòng */
+#workCenter .app-fb-open{position:relative}
+#workCenter .app-fb-open b{position:absolute;top:-7px;right:-7px;margin:0;box-shadow:0 0 0 1.5px #fcf8f3}
+/* Nút Thông báo rộng hơn chuông: dòng nhỏ phía trên không xuống dòng (tên chào tự thu nhỏ cho vừa, xem app-after.js) */
+#home .head:has(.head-actions) .eyebrow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.6px}
+.head-actions{gap:5px}
+.head-actions .head-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* Cửa sổ hỏi lại có bảng chi tiết (số tiền lớn, tên khoản, các dòng thông tin, ảnh bấm để phóng to) */
+.confirm-info .ci-big{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--ink);margin:2px 0 0}
+.confirm-info .ci-sub{font-size:14px;font-weight:600;margin:0 0 8px}
+.confirm-info .user-info-row strong{text-align:right}
+.confirm-info .user-info-row.ci-part{padding:5px 0 5px 10px;border-top:0}
+.confirm-info .user-info-row.ci-part strong{font-weight:500}
+.ci-photo{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #f1eadf;font-size:12px}
+.ci-photo img{width:64px;height:64px;object-fit:cover;border-radius:10px;cursor:zoom-in}
+.ci-photo img.big{width:100%;height:auto;max-height:60vh;object-fit:contain;cursor:zoom-out}
+.ci-photo:has(img.big){flex-direction:column}
+.confirm-info .confirm-text{margin-top:10px}
+.confirm-info{max-height:88%;overflow-y:auto}
+
+/* Màn khách dựng lại (#tenantHome2): dùng đúng kiểu dòng việc của màn quản lý (chép từ #workCenter) */
+#tenantHome2{margin-top:4px}
+#tenantHome2 .work-head{flex-wrap:wrap;row-gap:6px}
+#tenantHome2 .work-section{margin:0 0 20px}
+#tenantHome2 .work-head{display:flex;align-items:center;justify-content:flex-start;gap:12px;margin:0 2px 10px;min-height:30px}
+#tenantHome2 .work-head>span:first-child{font-family:var(--serif);font-size:22px;font-weight:700;line-height:1.1;color:var(--ink);letter-spacing:-.2px}
+#tenantHome2 .work-count{width:26px;height:26px;min-width:26px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:12px;font-weight:600;background:#e3ebe2;color:var(--ink)}
+#tenantHome2 .work-more{margin-left:auto;display:inline-flex;align-items:center;gap:9px;font-weight:500;font-size:11px;line-height:1;font-family:inherit;color:var(--ink);background:none;border:0;padding:6px 2px;cursor:pointer}
+#tenantHome2 .work-more::after{content:'';width:6px;height:6px;border-top:1.6px solid #0f3527;border-right:1.6px solid #0f3527;transform:rotate(45deg);flex:none}
+#tenantHome2 .work-list{border-radius:20px;padding:0;background:var(--glass-bg);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid #ffffffcc;box-shadow:var(--shadow);overflow:hidden}
+#tenantHome2 .work-row{min-height:44px;box-sizing:border-box;padding:6px 10px 6px 14px;gap:9px;align-items:center;border:0;border-top:1px solid #ece4d8;border-radius:0;background:none}
+#tenantHome2 .work-row:first-child{border-top:0}
+#tenantHome2 .work-dot{width:12px;height:12px;margin-right:3px}
+#tenantHome2 .work-dot.dot-repair{background:#d9453b}
+#tenantHome2 .work-dot.dot-payment{background:#0f3d2c}
+#tenantHome2 .work-dot.dot-expense{background:#f2b322}
+#tenantHome2 .work-dot.dot-contract{background:#8b2cf5}
+#tenantHome2 .work-dot.dot-room{background:#f08a24}
+#tenantHome2 .work-main{gap:2px}
+#tenantHome2 .work-title{font-size:11.5px;font-weight:600;color:var(--ink);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset}
+#tenantHome2 .work-sub{font-size:10px;color:#7d837f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tenantHome2 .work-action{height:27px;padding:0 12px;border-radius:999px;font-size:10.5px;font-weight:600;border:0;background:#e3eee6;color:var(--ink);box-shadow:none;white-space:nowrap;flex:none}
+#tenantHome2 .work-action.tone-amber{background:#fbe8cc;color:#7a4a12}
+#tenantHome2 .work-action.tone-rose{background:#f9dcd8;color:#8c2f28}
+#tenantHome2 .work-action.tone-plain{background:#fffdf9;color:var(--ink);border:1px solid #efe6da;box-shadow:0 1px 3px #6e50281a}
+#tenantHome2 .work-chevron{width:8px;font-size:0;display:grid;place-items:center;flex:none;margin-left:1px}
+#tenantHome2 .work-chevron::before{content:'';width:6px;height:6px;border-top:1.6px solid #7d837f;border-right:1.6px solid #7d837f;transform:rotate(45deg);flex:none}
+#tenantHome2 .history-amount{font-size:10px;color:#7d837f;flex:none}
+#tenantHome2 .work-more.less::after{display:none}
+#tenantHome2 .work-head>span:first-child{white-space:nowrap}
+#tenantHome2 .work-head{gap:6px}
+#tenantHome2 .work-more{white-space:nowrap}
+#tenantHome2 .work-count.urgent{background:#e0453a;color:#fff}
+#tenantHome2 .app-fb-open{position:relative}
+#tenantHome2 .app-fb-open b{position:absolute;top:-7px;right:-7px;margin:0;box-shadow:0 0 0 1.5px #fcf8f3}
+#tenantPortal.th2>#tenantViolations,#tenantPortal.th2>#tenantDueCard,#tenantPortal.th2>#tenantPriorityAlerts,#tenantPortal.th2>.tenant-actions,#tenantPortal.th2>#tenantReceipts,#tenantPortal.th2>#tenantTodo,#tenantPortal.th2>#tenantComplaints,#tenantPortal.th2>#tenantNotices,#tenantPortal.th2>#tenantConfirmBox,#tenantPortal.th2>#tenantLeaseChoice,#tenantPortal.th2>.tenant-card:has(#tenantFullTimeline){display:none!important}
+#tenantHome2{margin:6px 0 0}
+#tenantHome2 .th-money{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 2px 16px;padding:11px 14px;border-radius:16px;background:var(--glass-bg);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid #ffffffcc;box-shadow:var(--shadow);font-size:12.5px;color:var(--ink)}
+#tenantHome2 .th-money b{font-size:14px}
+#tenantHome2 .th-ok{color:#2f6b4f;font-weight:600;white-space:nowrap}
+#tenantHome2 .th-due{color:#c2453a;font-weight:700;white-space:nowrap}
+#tenantHome2 .th-amount{flex:none;font-weight:700;font-size:12px;color:var(--ink)}
+#tenantHome2 .th-actions{display:flex;gap:8px;margin:-6px 0 20px}
+#tenantHome2 .th-actions button{height:40px;border-radius:999px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid #ffffffcc;background:var(--glass-bg);box-shadow:var(--shadow);color:var(--ink);padding:0 16px}
+#tenantHome2 .th-actions .th-main{flex:1;background:#174a37;color:#fff;border-color:#174a37}
+#tenantHome2 .th-actions .th-more{flex:none}
+#tenantHome2 .th-vio{margin:-8px 0 20px}
+.th-sheet .th-sheet-body{max-height:65vh;overflow:auto}
+.th-sheet .th-in-sheet{display:block!important;margin:0}
+#tenantPortal.th2{padding-bottom:90px}
+/* Người ở cùng */
+.hh-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eee7da}
+.hh-row>div{flex:1;min-width:0}
+.hh-row strong{display:block;font-size:14px}
+.hh-row small{display:block;color:#6b6b63;font-size:12px;margin-top:2px}
+.hh-row small.hh-bad{color:#b3261e}
+.hh-btn{border:1px solid #d9d1c3;background:#fff;border-radius:10px;padding:6px 10px;font-size:12px;white-space:nowrap}
+#tenantPortal.th-gone .th-actions,#tenantPortal.th-gone .th-money{display:none}
+/* Khách đánh giá */
+.rate-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.rate-pick button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border:1px solid #e4dccf;border-radius:14px;background:#fffdf9;font-size:12px;font-weight:600;color:#1d3b2f}
+.rate-pick button span{font-size:26px;line-height:1}
+.rate-pick button.on{border-color:#1d3b2f;background:#eef4ef}
+.rate-why{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.rate-why button{border:1px solid #e4dccf;border-radius:999px;padding:6px 12px;background:#fff;font-size:12px}
+.rate-why button.on{background:#1d3b2f;color:#fff;border-color:#1d3b2f}
+.rate-row{width:100%;border:0;background:none;text-align:left;cursor:pointer;font:inherit}
+.rate-emo{margin-right:6px}

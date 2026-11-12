@@ -45,12 +45,72 @@
     [/^bắt buộc khi số tiền trên (.+)$/i, function (m) { return EN ? 'Required when the amount is over ' + m[1] : 'ចាំបាច់ពេលចំនួនទឹកប្រាក់លើស ' + m[1]; }],
     [/^gồm chi chung (.+)$/i, function (m) { return EN ? 'incl. shared costs ' + m[1] : 'រួមចំណាយរួម ' + m[1]; }],
     [/^chào (.+?) ?👋$/i, function (m) { return (EN ? 'Hello ' : 'សួស្ដី ') + m[1] + ' 👋'; }],
+    [/^quản lý (.+) thêm$/i, function (m) { return EN ? 'Added by manager ' + m[1] : 'អ្នកគ្រប់គ្រង ' + m[1] + ' បានបន្ថែម'; }],
+    [/^cố định (.+)\/tháng$/i, function (m) { return EN ? 'Fixed ' + m[1] + '/month' : 'ថេរ ' + m[1] + '/ខែ'; }],
+    [/^đầu kỳ (.+)$/i, function (m) { return (EN ? 'start ' : 'ដើមគ្រា ') + m[1]; }],
+    [/^người thêm: (.+)$/i, function (m) { return (EN ? 'Added by: ' : 'អ្នកបន្ថែម៖ ') + m[1]; }],
+    [/^cùng căn ~(.+)$/i, function (m) { return (EN ? 'same house ~' : 'ផ្ទះដដែល ~') + m[1]; }],
+    [/^duyệt phòng (.+)\?$/i, function (m) { return (EN ? 'Approve room ' : 'អនុម័តបន្ទប់ ') + m[1] + '?'; }],
+    [/^(\d+) món chưa có ảnh$/i, function (m) { return EN ? m[1] + ' item(s) without photo' : m[1] + ' មុខគ្មានរូបថត'; }],
+    [/^lý do từ chối: (.+)$/i, function (m) { return (EN ? 'Reason: ' : 'មូលហេតុ៖ ') + m[1]; }],
+    [/^ghi bởi (.+)$/i, function (m) { return (EN ? 'by ' : 'ដោយ ') + m[1]; }],
+    [/^QL (.+)$/, function (m) { return (EN ? 'Mgr ' : 'អ្នកគ្រប់គ្រង ') + m[1]; }],
     [/^hạn ký: (.+)$/i, function (m) { return (EN ? 'Sign by: ' : 'ចុះហត្ថលេខាមុន៖ ') + m[1]; }],
     [/^căn nhà: (.+)$/i, function (m) { return (EN ? 'House: ' : 'ផ្ទះ៖ ') + m[1]; }],
     [/^([\d.,]+ ?[₫$]|\$[\d.,]+)\/tháng$/, function (m) { return m[1] + (EN ? '/month' : '/ខែ'); }],
     [/^(.+): chờ (.+) ký hợp đồng$/i, function (m) { return EN ? m[1] + ': waiting for ' + m[2] + ' to sign' : m[1] + '៖ រង់ចាំ ' + m[2] + ' ចុះហត្ថលេខា'; }],
+    [/^bước (\d+)\/(\d+)$/i, function (m) { return (EN ? 'step ' : 'ជំហាន ') + m[1] + '/' + m[2]; }],
+    [/^kỳ sau (\d+\/\d+)$/i, function (m) { return (EN ? 'next due ' : 'លើកក្រោយ ') + m[1]; }],
+    [/^cần đóng (.+)$/i, function (m) { return (EN ? 'To pay ' : 'ត្រូវបង់ ') + m[1]; }],
+    [/^hẹn (\d+\/\d+(?:\/\d+)?)$/i, function (m) { return (EN ? 'scheduled ' : 'ណាត់ ') + m[1]; }],
+    [/^(.+) hẹn sửa (\d+\/\d+\/\d{4})( \(.+\))?$/i, function (m) { return EN ? m[1] + ' will repair on ' + m[2] + (m[3] || '') : m[1] + ' ណាត់ជួសជុល ' + m[2] + (m[3] || ''); }],
+    [/^hẹn sửa (\d+\/\d+\/\d{4})$/i, function (m) { return (EN ? 'repair on ' : 'ណាត់ជួសជុល ') + m[1]; }],
+    [/^(\d+) biên bản chưa xem$/i, function (m) { return EN ? m[1] + ' unread record(s)' : m[1] + ' កំណត់ត្រាមិនទាន់មើល'; }],
+    [/^đã trả trước (.+)$/i, function (m) { return (EN ? 'Prepaid ' : 'បានបង់មុន ') + m[1]; }],
+    [/^(.+) đang sửa$/i, function (m) { return EN ? m[1] + ' is repairing' : m[1] + ' កំពុងជួសជុល'; }],
+    [/^người ở cùng · (.+)$/i, function (m) { return (EN ? 'Roommates · ' : 'អ្នករស់នៅជាមួយ · ') + m[1]; }],
+    [/^thêm người ở cùng · (.+)$/i, function (m) { return (EN ? 'Add roommate · ' : 'បន្ថែមអ្នករស់នៅជាមួយ · ') + m[1]; }],
+    [/^(.+) \(anh\/chị\)$/i, function (m) { return m[1] + (EN ? ' (you)' : ' (អ្នក)'); }],
+    [/^ở từ (.+)$/i, function (m) { return (EN ? 'since ' : 'ចាប់ពី ') + m[1]; }],
+    [/^mời (\d+\/\d+\/\d{4})$/i, function (m) { return (EN ? 'invited ' : 'អញ្ជើញ ') + m[1]; }],
+    [/^khách chính (.+?)( thêm hoặc bỏ người ở cùng)?$/i, function (m) { return m[2] ? (EN ? 'Main tenant ' + m[1] + ' adds or removes roommates' : 'អ្នកជួលចម្បង ' + m[1] + ' បន្ថែម ឬដកអ្នករស់នៅជាមួយ') : (EN ? 'main tenant ' : 'អ្នកជួលចម្បង ') + m[1]; }],
+    [/^đang ở (\d+) người( \/ tối đa (\d+))?(, phòng đã đủ người)?$/i, function (m) { return (EN ? m[1] + ' living here' + (m[2] ? ' / max ' + m[3] : '') + (m[4] ? ', the room is full' : '') : 'កំពុងស្នាក់នៅ ' + m[1] + ' នាក់' + (m[2] ? ' / អតិបរមា ' + m[3] : '') + (m[4] ? ', បន្ទប់ពេញហើយ' : '')); }],
+    [/^(\d+) → (\d+) người( \/ tối đa (\d+))?$/i, function (m) { return m[1] + ' → ' + m[2] + (EN ? ' people' + (m[3] ? ' / max ' + m[4] : '') : ' នាក់' + (m[3] ? ' / អតិបរមា ' + m[4] : '')); }],
+    [/^phòng chỉ cho tối đa (\d+) người, không được ở vượt\.?$/i, function (m) { return EN ? 'This room allows at most ' + m[1] + ' people.' : 'បន្ទប់នេះអនុញ្ញាតអតិបរមា ' + m[1] + ' នាក់។'; }],
+    [/^từ kỳ sau thu thêm (.+) \/ người \/ tháng\.?$/i, function (m) { return EN ? 'From next period: extra ' + m[1] + ' / person / month.' : 'ពីគ្រាក្រោយ បង់បន្ថែម ' + m[1] + ' / នាក់ / ខែ។'; }],
+    [/^thôi thu từ kỳ (.+)$/i, function (m) { return (EN ? 'Stops from period ' : 'ឈប់គិតពីគ្រា ') + m[1]; }],
+    [/^nay (\d+) người$/i, function (m) { return EN ? 'Now ' + m[1] + ' people' : 'ឥឡូវ ' + m[1] + ' នាក់'; }],
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) (mời|gửi|duyệt|ghi)$/u, function (m) { var w = { 'mời': ['invited', 'បានអញ្ជើញ'], 'gửi': ['sent', 'បានផ្ញើ'], 'duyệt': ['approved', 'បានអនុម័ត'], 'ghi': ['recorded', 'បានកត់ត្រា'] }[m[2].toLocaleLowerCase('vi')]; return m[1] + ' ' + w[EN ? 0 : 1]; }],
+    [/^mật khẩu cho (.+)$/i, function (m) { return (EN ? 'Password for ' : 'ពាក្យសម្ងាត់សម្រាប់ ') + m[1]; }],
+    [/^(.+) đăng nhập bằng số (.+?)\.?$/i, function (m) { return EN ? m[1] + ' signs in with ' + m[2] + '.' : m[1] + ' ចូលដោយលេខ ' + m[2] + '។'; }],
+    [/^báo cho (.+) đăng nhập bằng số$/i, function (m) { return EN ? 'Tell ' + m[1] + ' to sign in with' : 'ប្រាប់ ' + m[1] + ' ឱ្យចូលដោយលេខ'; }],
+    [/^không duyệt (.+)\?$/i, function (m) { return (EN ? 'Decline ' : 'មិនអនុម័ត ') + m[1] + '?'; }],
+    [/^ghi (.+) đã dọn đi\?$/i, function (m) { return EN ? 'Mark ' + m[1] + ' as moved out?' : 'កត់ត្រា ' + m[1] + ' ថាបានចេញ?'; }],
+    [/^anh\/chị không còn ở phòng (.+)$/i, function (m) { return (EN ? 'You no longer live in room ' : 'អ្នកលែងស្នាក់នៅបន្ទប់ ') + m[1]; }],
+    [/^đang chờ (.+?) (tiếp nhận|xác nhận đã sửa xong|ký|duyệt gia hạn(?: đến (.+))?|duyệt|xác nhận biên bản giao phòng|xác nhận hoàn (.+)|xem lại số hoàn cọc|kiểm tra phòng, tính hoàn cọc|xác nhận đã nhận)$/i, function (m) {
+      var who = /^chủ nhà$/i.test(m[1]) ? (EN ? 'the owner' : 'ម្ចាស់ផ្ទះ') : /^quản lý$/i.test(m[1]) ? (EN ? 'the manager' : 'អ្នកគ្រប់គ្រង') : /^khách$/i.test(m[1]) ? (EN ? 'the tenant' : 'អ្នកជួល') : m[1];
+      var k = m[2].replace(/ đến .+$/, '').replace(/^xác nhận hoàn .+$/, 'xác nhận hoàn');
+      var W = { 'tiếp nhận': ['to accept it', 'ទទួល'], 'xác nhận đã sửa xong': ['to confirm the repair is done', 'បញ្ជាក់ថាជួសជុលរួច'], 'ký': ['to sign', 'ចុះហត្ថលេខា'], 'duyệt gia hạn': ['to approve the renewal', 'អនុម័តការបន្ត'], 'duyệt': ['to approve', 'អនុម័ត'], 'xác nhận biên bản giao phòng': ['to confirm the handover record', 'បញ្ជាក់កំណត់ត្រាប្រគល់បន្ទប់'], 'xác nhận hoàn': ['to confirm the refund', 'បញ្ជាក់ការសងប្រាក់'], 'xem lại số hoàn cọc': ['to recheck the refund', 'ពិនិត្យការសងប្រាក់កក់ឡើងវិញ'], 'kiểm tra phòng, tính hoàn cọc': ['to check the room and work out the refund', 'ពិនិត្យបន្ទប់ និងគណនាប្រាក់កក់'], 'xác nhận đã nhận': ['to confirm receipt', 'បញ្ជាក់ថាបានទទួល'] }[k.toLocaleLowerCase('vi')];
+      var extra = m[3] ? (EN ? ' until ' : ' ដល់ ') + m[3] : m[4] ? ' ' + m[4] : '';
+      return EN ? 'Waiting for ' + who + ' ' + W[0] + extra : 'រង់ចាំ ' + who + ' ' + W[1] + extra;
+    }],
+    [/^việc sửa (.+) thế nào$/i, function (m) { var x = one(m[1]) || m[1]; return EN ? 'How was the ' + x + ' repair' : 'ការជួសជុល ' + x + ' យ៉ាងម៉េចដែរ'; }],
+    [/^sửa (.+)$/i, function (m) { return (EN ? 'Repair ' : 'ជួសជុល ') + (one(m[1]) || m[1]); }],
+    [/^giao phòng (P\.\S+)$/i, function (m) { return (EN ? 'Handover ' : 'ប្រគល់បន្ទប់ ') + m[1]; }],
+    [/^trả phòng, hoàn cọc (P\.\S+)$/i, function (m) { return (EN ? 'Move-out, refund ' : 'ចេញពីបន្ទប់ សងប្រាក់កក់ ') + m[1]; }],
+    [/^(\d+)\/(\d+) hài lòng$/i, function (m) { return m[1] + '/' + m[2] + (EN ? ' satisfied' : ' ពេញចិត្ត'); }],
+    [/^(\d+) chưa hài lòng$/i, function (m) { return m[1] + (EN ? ' not satisfied' : ' មិនទាន់ពេញចិត្ត'); }],
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) làm$/u, function (m) { return EN ? 'done by ' + m[1] : 'ធ្វើដោយ ' + m[1]; }],
+    [/^lập bởi (.+)$/i, function (m) { return (EN ? 'drafted by ' : 'រៀបចំដោយ ') + m[1]; }],
+    [/^đã chờ (\d+) ngày$/i, function (m) { return EN ? 'waiting ' + m[1] + ' day(s)' : 'រង់ចាំ ' + m[1] + ' ថ្ងៃ'; }],
+    [/^chi phí (.+)$/i, function (m) { return (EN ? 'cost ' : 'ចំណាយ ') + m[1]; }],
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) (sửa|lập)$/u, function (m) { var w = m[2] === 'sửa' ? ['fixed it', 'បានជួសជុល'] : ['drafted', 'បានរៀបចំ']; return m[1] + ' ' + w[EN ? 0 : 1]; }],
+    [/^báo trả phòng ngày (.+)$/i, function (m) { return (EN ? 'Move-out on ' : 'ចេញពីបន្ទប់ថ្ងៃ ') + m[1]; }],
+    [/^người ở cùng (.+)$/i, function (m) { return (EN ? 'Roommate ' : 'អ្នករស់នៅជាមួយ ') + m[1]; }],
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) nộp (.+)$/u, function (m) { return m[1] + (EN ? ' sent ' : ' បានផ្ញើ ') + m[2]; }],
     [/^tiền thuê tháng (\d+\/\d{4})( \(tháng đầu\))?$/i, function (m) { return (EN ? 'Rent for ' : 'ថ្លៃជួលខែ ') + m[1] + (m[2] ? (EN ? ' (first month)' : ' (ខែដំបូង)') : ''); }]
   ];
+  var NAME_HEADS = { 'khách': 1 };
   var VI = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i;
   function one(text) {
     if (exact.has(text)) return exact.get(text);
@@ -64,10 +124,18 @@
     var words = text.split(' ');
     for (var n = Math.min(words.length - 1, 6); n >= 1; n--) {
       var head = words.slice(0, n).join(' '), rest = words.slice(n);
+      if (n === 1 && NAME_HEADS[head.toLocaleLowerCase('vi')] && words.length <= 3) return null; // "Khách Thử" là tên người, không dịch
       var known = exact.get(head) || dict.get(head.toLocaleLowerCase('vi'));
       if (known && rest.length <= 3 && /^[\p{Lu}\d$+]/u.test(rest[0])) return known + ' ' + rest.join(' ');
     }
     return null;
+  }
+  // Dòng lịch sử "Duyệt chi phí: Sửa máy bơm", "Đổi quản lý phụ trách: A → B": dịch phần nhãn, giữ tên người dùng gõ
+  function labelled(part) {
+    var bits = part.split(/(: | – | → )/), changed = false;
+    if (bits.length < 2) return null;
+    var out = bits.map(function (bit, i) { if (i % 2) return bit; var t = one(bit); if (t) changed = true; return t || bit; });
+    return changed ? out.join('') : null;
   }
   function translate(raw) {
     if (!raw || !VI.test(raw)) return null;
@@ -80,13 +148,13 @@
     var hitCore = exact.get(core) || dict.get(core.toLocaleLowerCase('vi'));
     if (hitCore) return lead + hitCore + tail;
     var parts = core.split(/( · |\. )/), changed = false;
-    var out = parts.map(function (part, i) { if (i % 2) return part; var t = one(part); if (t) changed = true; return t || part; });
+    var out = parts.map(function (part, i) { if (i % 2) return part; var t = one(part) || labelled(part); if (t) changed = true; return t || part; });
     return changed ? lead + out.join('') + tail : null;
   }
   var original = new WeakMap(), ATTRS = ['placeholder', 'title', 'aria-label'];
   function skip(node) {
     var el = node.nodeType === 1 ? node : node.parentElement;
-    return !el || el.closest('#loginScreen,.legal-sheet,script,style,textarea,select.account-select,.account-panel');
+    return !el || el.closest('#loginScreen,.legal-sheet,script,style,textarea,select.account-select,.account-panel,[translate=no]');
   }
   function fixText(node) {
     if (skip(node)) return;
@@ -131,13 +199,17 @@
   });
   function start() {
     walk(document.body);
-    new MutationObserver(function (list) {
+    var dbgN = 0, dbgT = Date.now(), watchBody = function () { dbgN = 0; mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS }); }, mo = new MutationObserver(function (list) {
+      if (Date.now() - dbgT > 1000) { dbgT = Date.now(); dbgN = 0; }
+      // Lưới an toàn: code nào đó vẽ lại mãi vì so chữ đã dịch với chữ gốc → tạm nghỉ dịch 1 giây, không để app treo
+      if ((dbgN += list.length) > 3000) { console.warn('i18n: vẽ lại liên tục', list[0] && list[0].target); mo.disconnect(); setTimeout(function () { walk(document.body); watchBody(); }, 1000); return; }
       list.forEach(function (m) {
         if (m.type === 'characterData') return fixText(m.target);
         if (m.type === 'attributes') return fixAttrs(m.target);
         m.addedNodes.forEach(walk);
       });
-    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+    });
+    watchBody();
   }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
