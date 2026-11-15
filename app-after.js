@@ -125,7 +125,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var phone = user && user.phone;
     if (!vaiTro || !phone) { toast('Chưa có số điện thoại nên chưa tạo được tài khoản trên máy chủ'); return result; }
     window.__homeSavingAccount = (window.__homeSavingAccount || 0) + 1;
-    window.HOME_DB.saveAccount({ phoneKey: phoneKey(phone, '84'), name: user.name, role: vaiTro, password: pw }).then(function (r) {
+    window.HOME_DB.saveAccount({ phoneKey: phoneKey(phone, '84'), name: user.name, role: vaiTro, password: pw, room: vaiTro === 'khach' ? user.room : null }).then(function (r) {
       window.__homeSavingAccount--;
       if (!r || r.error) toast('Máy chủ chưa tạo được tài khoản: ' + ((r && r.error) || 'lỗi không rõ'));
       else {
@@ -185,7 +185,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
         try { if (sel && typeof window.setAccount === 'function') window.setAccount(sel.value); if (page && (document.querySelector('.subpage.active') || {}).id !== page) window.go(page); window.scrollTo(0, y); } catch (e) {}
         return;
       }
-      try { sessionStorage.setItem('homeRealReloadAt', String(Date.now())); } catch (e) {}
+      // Mở lại vẫn về đúng tab đang xem
+      try { sessionStorage.setItem('homeRealReloadAt', String(Date.now())); sessionStorage.setItem('homeReturnTab', (document.querySelector('.subpage.active') || {}).id || 'home'); } catch (e) {}
       location.reload();
     });
   }
@@ -326,6 +327,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var first = signed ? get('homeRentCharges', []).filter(function (x) { return x && x.room === room && x.tenantKey === acct.join('|') && (x.kind === 'deposit' || x.kind === 'rent') && (x.status === 'Chưa thu' || x.status === 'Đã báo thanh toán'); }) : [];
     var dep = first.filter(function (x) { return x.kind === 'deposit'; })[0];
     if (signed && (!moved || dep)) {
+      // Khách nhắc quản lý hẹn ngày giao phòng: mỗi ngày một lần (anh yêu cầu 13/11)
+      var nudge = (function () { var l = (c.handoverNudges || []).slice(-1)[0], d = l && (String(l.at).match(/(\d{1,2})\/(\d{1,2})\/\d{4}/) || []); return { last: l, day: d && d[1] ? d[1].padStart(2, '0') + '/' + d[2].padStart(2, '0') : '', today: !!(l && String(l.at).indexOf(new Date().toLocaleDateString('vi-VN')) >= 0) }; })();
       var step = function (done, now, title, sub, btn) {
         return '<div class="todo-step' + (done ? ' done' : now ? ' now' : '') + '"><span class="todo-dot">' + (done ? '✓' : '') + '</span><div><strong>' + title + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' + (btn || '') + '</div>';
       };
@@ -335,8 +338,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       var reported = dep && (dep.status === 'Đã báo thanh toán' || Array.prototype.some.call(portal.querySelectorAll('.tenant-actions button'), function (x) { return /^Đã báo thanh toán/.test(x.textContent.trim()); }));
       html = '<div class="todo-head">Việc cần làm</div>' +
         step(true, false, 'Ký hợp đồng', esc(c.number)) +
-        step(moved, !moved, 'Nhận phòng', moved ? '' : pendingHand ? 'Quản lý đã gửi biên bản giao phòng' : 'Quản lý sẽ hẹn ngày giao phòng',
-          pendingHand ? '<button type="button" class="todo-btn" data-todo="hand" data-id="' + esc(pendingHand.id) + '">Xem và xác nhận</button>' : '') +
+        step(moved, !moved, 'Nhận phòng', moved ? '' : pendingHand ? 'Quản lý đã gửi biên bản giao phòng' : 'Quản lý sẽ hẹn ngày giao phòng' + (nudge.last ? ' · đã nhắc ' + nudge.day : ''),
+          pendingHand ? '<button type="button" class="todo-btn" data-todo="hand" data-id="' + esc(pendingHand.id) + '">Xem và xác nhận</button>' : nudge.today ? '' : '<button type="button" class="todo-btn" data-todo="nudge">Nhắc quản lý</button>') +
         step(!!prepaid, moved && !prepaid, 'Đóng cọc và tiền thuê kỳ đầu', prepaid ? 'Đã trả trước ' + prepaid + ' · tự trừ vào kỳ đầu' : reported ? 'Đã báo thanh toán · chờ quản lý xác nhận' : moved ? 'Bấm Báo đã thanh toán sau khi chuyển tiền' : 'Sau khi nhận phòng');
     }
     if (due) { var hide = signed && !moved; if (due.hidden !== hide) due.hidden = hide; portal.querySelectorAll('.tenant-actions button').forEach(function (b) { if (/^(Báo|Đã báo) đã thanh toán|^Đã báo thanh toán/.test(b.textContent.trim()) && b.hidden !== hide) b.hidden = hide; }); }
@@ -348,6 +351,15 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var b = e.target.closest && e.target.closest('[data-todo]');
     if (!b) return;
     if (b.dataset.todo === 'hand' && typeof window.openHandoverReview === 'function') window.openHandoverReview(b.dataset.id);
+    if (b.dataset.todo === 'nudge') {
+      var acct = String(document.getElementById('accountSelect').value || '').split('|'), room = acct[2], c = getHomeContract(room);
+      if (!c) return;
+      var at = new Date().toLocaleString('vi-VN');
+      c.handoverNudges = (c.handoverNudges || []).concat([{ at: at, by: acct[1] }]);
+      saveHomeContract(room, c);
+      appendRoomHistory(room, { kind: 'room', title: 'Khách nhắc hẹn ngày giao phòng', detail: acct[1] + ' · ' + at, tenantName: acct[1], actor: acct[1] });
+      if (typeof appToast === 'function') appToast('Đã nhắc quản lý');
+    }
   });
   var t = 0, busy = false;
   function soon() { if (busy) return; clearTimeout(t); t = setTimeout(function () { busy = true; try { render(); } finally { setTimeout(function () { busy = false; }, 0); } }, 80); }
@@ -362,9 +374,9 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
 // Đổi cài đặt căn (kể cả điều khoản) ghi vào Lịch sử.
 (function () {
   var DEFAULT = {
-    vi: ['1. Bên cho thuê giao phòng {phong} cho {khach} sử dụng để ở, thời hạn {thoi_han}.', '2. Tiền thuê {tien_thue}/tháng, đóng {han_dong}. Điện nước: {dien_nuoc}.', '3. Tiền cọc {coc}, hoàn lại khi trả phòng sau khi trừ tiền còn nợ và hư hỏng do người thuê gây ra (nếu có).', '4. Người thuê giữ gìn phòng và tài sản theo biên bản giao phòng; hư hỏng do người thuê gây ra thì người thuê chịu chi phí sửa.', '5. Không tự ý sửa chữa, cải tạo, cho người khác thuê lại; có người ở lại qua đêm thì báo trong app.', '6. Đóng tiền trễ quá 7 ngày, bên cho thuê được nhắc và tính phí theo thoả thuận của căn.', '7. Muốn trả phòng trước hạn, báo trước ít nhất 30 ngày; trả phòng trước hạn không báo có thể mất cọc.', '8. Hai bên xác nhận hợp đồng bằng cách ký trong app Home♡.'],
-    en: ['1. The landlord lets room {phong} to {khach} for living, for the term {thoi_han}.', '2. Rent {tien_thue}/month, due {han_dong}. Utilities: {dien_nuoc}.', '3. Deposit {coc}, refunded at move-out after deducting any unpaid amounts and damage caused by the tenant.', '4. The tenant takes care of the room and items listed in the handover record and pays for damage they cause.', '5. No repairs, alterations or subletting without permission; report overnight guests in the app.', '6. If payment is more than 7 days late, the landlord may send reminders and charge fees as agreed for the house.', '7. To leave before the end date, give at least 30 days notice; leaving early without notice may forfeit the deposit.', '8. Both parties confirm this contract by signing in the Home♡ app.'],
-    km: ['1. ម្ចាស់ផ្ទះប្រគល់បន្ទប់ {phong} ឱ្យ {khach} ស្នាក់នៅ រយៈពេល {thoi_han}។', '2. ថ្លៃជួល {tien_thue}/ខែ បង់ {han_dong}។ ទឹកភ្លើង៖ {dien_nuoc}។', '3. ប្រាក់កក់ {coc} នឹងប្រគល់វិញពេលចេញ ក្រោយកាត់ប្រាក់ជំពាក់ និងការខូចខាតដោយអ្នកជួល (ប្រសិនបើមាន)។', '4. អ្នកជួលថែរក្សាបន្ទប់ និងទ្រព្យតាមកំណត់ត្រាប្រគល់ ហើយចេញថ្លៃជួសជុលការខូចខាតដែលខ្លួនបង្ក។', '5. មិនត្រូវជួសជុល កែប្រែ ឬជួលបន្តដោយគ្មានការអនុញ្ញាត។ មានភ្ញៀវស្នាក់យប់ សូមរាយការណ៍ក្នុងកម្មវិធី។', '6. បង់យឺតលើស 7 ថ្ងៃ ម្ចាស់ផ្ទះអាចរំលឹក និងគិតថ្លៃតាមការព្រមព្រៀងរបស់ផ្ទះ។', '7. ចង់ចេញមុនកំណត់ ត្រូវជូនដំណឹងយ៉ាងហោចណាស់ 30 ថ្ងៃ។ ចេញមុនដោយមិនជូនដំណឹងអាចបាត់ប្រាក់កក់។', '8. ភាគីទាំងពីរបញ្ជាក់កិច្ចសន្យានេះដោយចុះហត្ថលេខាក្នុងកម្មវិធី Home♡។']
+    vi: ["1. Chủ nhà (bên cho thuê) cho {khach} thuê phòng {phong} để ở, thời hạn {thoi_han}. Số người ở: {so_nguoi}, không ở quá số người này.", "2. Tiền thuê {tien_thue}/tháng, đóng {han_dong} bằng chuyển khoản theo mã QR trong app; app tự gửi biên lai. Điện nước: {dien_nuoc}. Đóng trễ không bị phạt, app sẽ nhắc; nợ quá 15 ngày thì chủ nhà liên hệ trực tiếp.", "3. Tiền cọc {coc}, hoàn lại ngay khi trả phòng, sau khi kiểm tra phòng và trừ tiền còn nợ, chi phí hư hỏng, mất đồ (nếu có). Khoản trừ lớn hơn tiền cọc thì người thuê trả phần còn thiếu.", "4. Người ở thêm phải báo trong app, có ảnh CCCD / hộ chiếu, và được quản lý duyệt{phu_phi_cau}. Người ở lại qua đêm chỉ cần báo trong app; ở quá {dem} đêm trong 30 ngày thì phải đăng ký người ở cùng.", "5. Người thuê đưa giấy tờ để bên cho thuê khai báo tạm trú (Việt Nam: công an / VNeID; Campuchia: sangkat). Ảnh giấy tờ được giữ trong app đến 1 năm sau khi trả phòng.", "6. Người thuê giữ gìn phòng và tài sản theo biên bản giao phòng. Hư hỏng do người thuê gây ra, mất chìa khoá / thẻ / remote thì người thuê trả theo hoá đơn thực tế; hao mòn tự nhiên thì không phải trả.", "7. Có hư hỏng thì báo trong app. Không tự sửa, không cải tạo, không cho người khác thuê lại khi chưa được chủ nhà đồng ý. Quản lý được vào phòng để sửa chữa, bảo trì khi đã hẹn trước, trừ trường hợp khẩn cấp (cháy, rò nước).", "8. Còn 30 ngày là hết hạn, người thuê chọn Gia hạn hoặc Không gia hạn trong app. Muốn tăng giá, chủ nhà báo trong app trước ít nhất 30 ngày.", "9. Muốn trả phòng trước hạn, báo trong app trước ít nhất 30 ngày; tiền thuê kỳ cuối tính theo số ngày ở. Báo trước dưới 30 ngày hoặc đi không báo thì mất toàn bộ tiền cọc và tính trọn kỳ cuối, trừ khi chủ nhà đồng ý khác.", "10. Khi trả phòng, hai bên kiểm tra phòng theo biên bản giao phòng. Vi phạm nội quy được lập biên bản trong app; đến lần thứ 3, chủ nhà có thể lấy lại phòng. Chủ nhà lấy lại phòng thì báo trước ít nhất 30 ngày, hoàn đủ cọc và tiền thuê những ngày chưa ở.", "11. Chủ nhà duyệt và người thuê ký hợp đồng trong app Home♡; bản điều khoản người thuê đã đọc được lưu kèm hợp đồng. Khiếu nại gửi chủ nhà qua mục Góp ý / Khiếu nại. Nếu các bản ngôn ngữ khác nhau, dùng bản tiếng Việt (căn ở Việt Nam) hoặc bản tiếng Khmer (căn ở Campuchia)."],
+    en: ["1. The landlord lets room {phong} to {khach} as a residence, for the term {thoi_han}. Number of occupants: {so_nguoi}; no more people may live there.", "2. Rent {tien_thue}/month, due {han_dong}, paid by bank transfer using the QR code in the app; the app sends a receipt. Utilities: {dien_nuoc}. There is no late fee; the app sends reminders, and if rent is more than 15 days overdue the landlord will contact the tenant directly.", "3. Deposit {coc}, refunded at move-out after the room is checked, minus any unpaid amounts and the cost of damage or missing items. If deductions exceed the deposit, the tenant pays the difference.", "4. Any additional occupant must be reported in the app with an ID card / passport photo and approved by the manager{phu_phi_cau}. Overnight guests only need to be reported in the app; a guest staying more than {dem} nights in 30 days must be registered as an occupant.", "5. The tenant provides ID documents so the landlord can register their residence (Vietnam: police / VNeID; Cambodia: sangkat). ID photos are kept in the app for up to 1 year after move-out.", "6. The tenant takes care of the room and the items in the handover record. The tenant pays the actual invoiced cost of damage they cause and of lost keys / cards / remotes; normal wear and tear is not charged.", "7. Report damage in the app. No repairs, alterations or subletting without the landlord's consent. The manager may enter the room for repairs or maintenance by prior appointment, except in emergencies (fire, water leak).", "8. 30 days before the end date, the tenant chooses Renew or Do not renew in the app. To raise the rent, the landlord gives at least 30 days' notice in the app.", "9. To leave early, give at least 30 days' notice in the app; rent for the last period is then charged by the day. With less than 30 days' notice, or leaving without notice, the full deposit is forfeited and the whole last period is charged, unless the landlord agrees otherwise.", "10. At move-out, both parties check the room against the handover record. Breaches of the house rules are recorded in the app; after the 3rd breach the landlord may take the room back. When the landlord takes the room back, they give at least 30 days' notice and refund the full deposit and the rent for unused days.", "11. The landlord approves and the tenant signs this contract in the Home♡ app; the terms the tenant read are saved with the contract. Complaints go to the landlord via Feedback / Complaint. If language versions differ, the Vietnamese version applies for houses in Vietnam and the Khmer version for houses in Cambodia."],
+    km: ["1. ម្ចាស់ផ្ទះ ជួលបន្ទប់ {phong} ឱ្យ {khach} ស្នាក់នៅ រយៈពេល {thoi_han}។ ចំនួនអ្នកស្នាក់នៅ៖ {so_nguoi} នាក់ មិនត្រូវលើសចំនួននេះ។", "2. ថ្លៃជួល {tien_thue}/ខែ បង់ {han_dong} ដោយផ្ទេរប្រាក់តាមកូដ QR ក្នុងកម្មវិធី កម្មវិធីផ្ញើបង្កាន់ដៃដោយស្វ័យប្រវត្តិ។ ទឹកភ្លើង៖ {dien_nuoc}។ បង់យឺតមិនពិន័យទេ កម្មវិធីនឹងរំលឹក ជំពាក់លើស 15 ថ្ងៃ ម្ចាស់ផ្ទះនឹងទាក់ទងផ្ទាល់។", "3. ប្រាក់កក់ {coc} ប្រគល់វិញភ្លាមពេលចេញ ក្រោយពិនិត្យបន្ទប់ និងកាត់ប្រាក់ជំពាក់ ថ្លៃខូចខាត ឬបាត់របស់ (ប្រសិនបើមាន)។ បើប្រាក់កាត់លើសប្រាក់កក់ អ្នកជួលត្រូវបង់ចំនួនដែលខ្វះ។", "4. អ្នកស្នាក់នៅបន្ថែមត្រូវរាយការណ៍ក្នុងកម្មវិធី មានរូបអត្តសញ្ញាណប័ណ្ណ / លិខិតឆ្លងដែន និងត្រូវអ្នកគ្រប់គ្រងអនុម័ត{phu_phi_cau}។ ភ្ញៀវស្នាក់មួយយប់ គ្រាន់តែរាយការណ៍ក្នុងកម្មវិធី ស្នាក់លើស {dem} យប់ក្នុង 30 ថ្ងៃ ត្រូវចុះឈ្មោះជាអ្នកស្នាក់នៅជាមួយ។", "5. អ្នកជួលផ្តល់ឯកសារឱ្យម្ចាស់ផ្ទះចុះឈ្មោះស្នាក់នៅ (វៀតណាម៖ ប៉ូលិស / VNeID; កម្ពុជា៖ សង្កាត់)។ រូបឯកសាររក្សាទុកក្នុងកម្មវិធីរហូតដល់ 1 ឆ្នាំក្រោយចេញ។", "6. អ្នកជួលថែរក្សាបន្ទប់ និងទ្រព្យតាមកំណត់ត្រាប្រគល់។ ការខូចខាតដែលអ្នកជួលបង្ក និងការបាត់សោ / កាត / តេឡេបញ្ជា អ្នកជួលបង់តាមវិក្កយបត្រពិត។ ការរេចរឹលធម្មតា មិនគិតថ្លៃទេ។", "7. មានការខូចខាត សូមរាយការណ៍ក្នុងកម្មវិធី។ មិនត្រូវជួសជុលខ្លួនឯង កែប្រែ ឬជួលបន្តដោយគ្មានការយល់ព្រមពីម្ចាស់ផ្ទះ។ អ្នកគ្រប់គ្រងអាចចូលបន្ទប់ដើម្បីជួសជុល ឬថែទាំ ពេលបានណាត់ជាមុន លើកលែងករណីបន្ទាន់ (អគ្គិភ័យ លេចទឹក)។", "8. នៅសល់ 30 ថ្ងៃមុនផុតកំណត់ អ្នកជួលជ្រើសរើស បន្តកិច្ចសន្យា ឬ មិនបន្ត ក្នុងកម្មវិធី។ ចង់ដំឡើងថ្លៃ ម្ចាស់ផ្ទះត្រូវជូនដំណឹងក្នុងកម្មវិធីយ៉ាងហោចណាស់ 30 ថ្ងៃមុន។", "9. ចង់ចេញមុនកំណត់ ត្រូវជូនដំណឹងក្នុងកម្មវិធីយ៉ាងហោចណាស់ 30 ថ្ងៃមុន ថ្លៃជួលវគ្គចុងក្រោយគិតតាមចំនួនថ្ងៃស្នាក់នៅ។ ជូនដំណឹងតិចជាង 30 ថ្ងៃ ឬចេញដោយមិនជូនដំណឹង នឹងត្រូវដកហូតប្រាក់កក់ទាំងអស់ និងគិតថ្លៃវគ្គចុងក្រោយពេញ លើកលែងតែម្ចាស់ផ្ទះយល់ព្រមផ្សេង។", "10. ពេលចេញ ភាគីទាំងពីរពិនិត្យបន្ទប់តាមកំណត់ត្រាប្រគល់។ ការបំពានបទបញ្ជាផ្ទះត្រូវកត់ត្រាក្នុងកម្មវិធី លើកទី 3 ម្ចាស់ផ្ទះអាចយកបន្ទប់វិញ។ ម្ចាស់ផ្ទះយកបន្ទប់វិញ ត្រូវជូនដំណឹងយ៉ាងហោចណាស់ 30 ថ្ងៃមុន ប្រគល់ប្រាក់កក់ពេញ និងថ្លៃជួលថ្ងៃដែលមិនទាន់ស្នាក់នៅ។", "11. ម្ចាស់ផ្ទះអនុម័ត ហើយអ្នកជួលចុះហត្ថលេខាកិច្ចសន្យាក្នុងកម្មវិធី Home♡ លក្ខខណ្ឌដែលអ្នកជួលបានអានរក្សាទុកជាមួយកិច្ចសន្យា។ បណ្តឹងផ្ញើទៅម្ចាស់ផ្ទះតាមផ្នែក មតិយោបល់ / បណ្តឹង។ បើកំណែភាសាខុសគ្នា ប្រើកំណែភាសាវៀតណាម (ផ្ទះនៅវៀតណាម) ឬកំណែភាសាខ្មែរ (ផ្ទះនៅកម្ពុជា)។"]
   };
   function lang() { try { var l = localStorage.getItem('homeLang'); return l === 'en' || l === 'km' ? l : 'vi'; } catch (e) { return 'vi'; } }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -373,9 +385,16 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   function settings(id) { try { return (typeof houseSettings === 'function' ? houseSettings(id) : {}) || {}; } catch (e) { return {}; } }
   function houseOf(room) { try { return typeof propertyIdForRoom === 'function' ? propertyIdForRoom(room) : ''; } catch (e) { return ''; } }
   function houseName(id) { try { return ((readProperties() || []).find(function (h) { return h.id === id; }) || {}).name || ''; } catch (e) { return ''; } }
-  window.contractTermsTemplate = function (house) { var own = settings(house).contractTerms; return own && String(own).trim() ? String(own) : DEFAULT[lang()].join('\n'); };
+  function ownTerms(house, L) { var own = settings(house).contractTerms; if (own && typeof own === 'object') return String(own[L] || '').trim(); return L === 'vi' && own ? String(own).trim() : ''; }
+  window.contractTermsTemplate = function (house, L) { L = L || lang(); return ownTerms(house, L) || DEFAULT[L].join('\n'); };
+  // Bản điều khoản đã ký còn đúng không: ghi kèm giá / thời hạn lúc ký; hợp đồng cũ thì xem bản đã ký có chứa giá hiện tại
+  function signedKey(c) { return [c.rent, c.term, c.deposit].join('|'); }
+  function termsStillFit(c, room) {
+    if (c.termsFor) return c.termsFor === signedKey(c);
+    try { var house = houseOf(room), r = typeof amountForHouse === 'function' && house ? amountForHouse(Number(c.rent) || 0, house) : money(Number(c.rent) || 0); return String(c.termsText).indexOf(r) >= 0 && String(c.termsText).indexOf(String(c.term || '')) >= 0; } catch (e) { return true; }
+  }
   function fill(text, room, c) {
-    var m = function (v) { try { return money(Number(v) || 0); } catch (e) { return String(v || ''); } };
+    var house = houseOf(room), m = function (v) { try { return typeof amountForHouse === 'function' && house ? amountForHouse(Number(v) || 0, house) : money(Number(v) || 0); } catch (e) { return String(v || ''); } };
     var L = lang(), W = { vi: ['điện', 'nước', 'theo đồng hồ', 'cố định', '/tháng', 'chưa nhập giá'], en: ['electricity', 'water', 'metered', 'flat', '/month', 'price not set'], km: ['ភ្លើង', 'ទឹក', 'តាមកុងទ័រ', 'ថេរ', '/ខែ', 'មិនទាន់កំណត់តម្លៃ'] }[L], u = '';
     try {
       var b = c.utilityBilling || getUtilityBillingForRoom(room);
@@ -385,8 +404,17 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       }).join(', ');
     } catch (e) {}
     var d = (String(c.dueDay || '').match(/\d+/) || [])[0], due = d ? { vi: 'ngày ' + d + ' hằng tháng', en: 'on day ' + d + ' of each month', km: 'ថ្ងៃទី ' + d + ' រៀងរាល់ខែ' }[L] : String(c.dueDay || '');
-    var map = { phong: room, khach: c.tenantName || '', thoi_han: c.term || '', tien_thue: m(c.rent), coc: m(c.deposit), han_dong: due, dien_nuoc: u };
-    return String(text).replace(/\{(\w+)\}/g, function (all, k) { return k in map ? map[k] : all; });
+    var rates = { fee: 0, utility: 0 }, flat = false;
+    try { rates = window.extraPersonRates(room); flat = !!window.roomUtilityFixed(room); } catch (e) {}
+    var extra = m(rates.fee) + (flat && rates.utility ? { vi: ' (gồm điện nước khoán ' + m(rates.utility) + ')', en: ' (incl. flat utilities ' + m(rates.utility) + ')', km: ' (រួមទឹកភ្លើងថេរ ' + m(rates.utility) + ')' }[L] : '');
+    var term = String(c.term || '').replace(/(\d+)\s*tháng/gi, function (all, n) { return L === 'en' ? n + (n === '1' ? ' month' : ' months') : L === 'km' ? n + ' ខែ' : all; });
+    var map = { phong: room, khach: c.tenantName || '', thoi_han: term, tien_thue: m(c.rent), coc: m(c.deposit), han_dong: due, dien_nuoc: u,
+      chu_nha: (function () { try { return ownerName(); } catch (e) { return ''; } })(), can: houseName(house), so_nguoi: String(c.occupants || 1), phu_phi: extra,
+      phu_phi_cau: rates.fee > 0 || (flat && rates.utility > 0) ? { vi: '; đóng thêm ' + extra + ' mỗi người mỗi tháng, tháng đầu tính theo số ngày ở', en: '; each costs an extra ' + extra + ' per month, the first month counted by days stayed', km: '; បង់បន្ថែម ' + extra + ' ក្នុងម្នាក់ក្នុងមួយខែ ខែដំបូងគិតតាមថ្ងៃស្នាក់នៅ' }[L] : { vi: '; không thu thêm tiền', en: '; no extra charge', km: '; មិនគិតថ្លៃបន្ថែម' }[L],
+      dem: String(Number(settings(house).guestNightLimit) || 14) };
+    text = String(text).replace('{chu_nha} (bên cho thuê)', 'Chủ nhà (bên cho thuê)').replace('{chu_nha} (the landlord)', 'The landlord').replace('{chu_nha} (ម្ចាស់ផ្ទះ)', 'ម្ចាស់ផ្ទះ').replace(/\{phong\} – \{can\}/g, '{phong}');
+    map.chu_nha = { vi: 'Chủ nhà', en: 'The landlord', km: 'ម្ចាស់ផ្ទះ' }[L] || map.chu_nha;
+    return text.replace(/\{(\w+)\}/g, function (all, k) { return k in map ? map[k] : all; });
   }
   // Màn hợp đồng: thêm khung điều khoản (cuộn riêng) ngay trên dòng Trạng thái
   if (typeof window.showContract === 'function') {
@@ -397,7 +425,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
         var sheets = document.querySelectorAll('.modal-overlay .modal-sheet'), sheet = sheets[sheets.length - 1];
         var room = (document.querySelector('#tenantRoom') || {}).innerText || '', c = (typeof getHomeContract === 'function' && getHomeContract(room)) || {};
         if (sheet && !sheet.querySelector('.contract-terms')) {
-          var text = c.termsText || fill(window.contractTermsTemplate(houseOf(room)), room, c);
+          var fresh = fill(window.contractTermsTemplate(houseOf(room)), room, c), text = c.termsText && termsStillFit(c, room) ? c.termsText : fresh;
           var rows = Array.prototype.filter.call(sheet.querySelectorAll('.tenant-kv'), function (x) { return x.textContent.trim().indexOf('Trạng thái') === 0; });
           var box = document.createElement('div');
           box.className = 'contract-terms';
@@ -416,7 +444,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       var r = sign.apply(this, arguments);
       try {
         var all = JSON.parse(localStorage.getItem('homeContracts') || '{}');
-        if (text && all[room] && all[room].status === 'Đã ký' && !all[room].termsText) { all[room].termsText = text.trim(); localStorage.setItem('homeContracts', JSON.stringify(all)); }
+        if (text && all[room] && all[room].status === 'Đã ký' && !all[room].termsText) { all[room].termsText = text.trim(); all[room].termsFor = signedKey(all[room]); localStorage.setItem('homeContracts', JSON.stringify(all)); }
       } catch (e) {}
       return r;
     };
@@ -429,22 +457,33 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     saveHouseSettings(id, { log: log });
   }
   function openTerms(id) {
-    var o = document.createElement('div');
+    var o = document.createElement('div'), L = lang(), drafts = {};
     o.className = 'modal-overlay';
-    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Điều khoản hợp đồng</div><small class="note">{phong} {khach} {thoi_han} {tien_thue} {coc} {han_dong} {dien_nuoc}: app tự điền khi khách xem.</small><textarea rows="14" class="terms-edit" translate="no"></textarea><div class="modal-actions"><button type="button" class="save" data-terms-save>Lưu</button><button type="button" data-terms-reset>Mẫu sẵn</button><button type="button" data-terms-close>Huỷ</button></div></div>';
-    o.querySelector('textarea').value = window.contractTermsTemplate(id);
+    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Điều khoản hợp đồng</div><div class="pills terms-langs">' + [['vi', 'Tiếng Việt'], ['en', 'English'], ['km', 'ខ្មែរ']].map(function (x) { return '<button type="button" class="pill" data-terms-lang="' + x[0] + '" translate="no">' + x[1] + '</button>'; }).join('') + '</div><small class="note">Mỗi ngôn ngữ một bản: khách đọc bản theo ngôn ngữ của mình. {chu_nha} {khach} {phong} {can} {so_nguoi} {thoi_han} {tien_thue} {coc} {han_dong} {dien_nuoc} {phu_phi}: app tự điền khi khách xem.</small><textarea rows="14" class="terms-edit" translate="no"></textarea><div class="modal-actions"><button type="button" class="save" data-terms-save>Lưu</button><button type="button" data-terms-reset>Mẫu sẵn</button><button type="button" data-terms-close>Huỷ</button></div></div>';
+    var box = o.querySelector('textarea');
+    function show(next) { if (box.dataset.lang) drafts[box.dataset.lang] = box.value; L = next; box.dataset.lang = L; box.value = L in drafts ? drafts[L] : window.contractTermsTemplate(id, L); o.querySelectorAll('[data-terms-lang]').forEach(function (b) { b.classList.toggle('selected', b.dataset.termsLang === L); }); }
+    show(L);
     (document.querySelector('.phone') || document.body).appendChild(o);
     o.addEventListener('click', function (e) {
-      if (e.target.closest('[data-terms-close]')) o.remove();
-      else if (e.target.closest('[data-terms-reset]')) o.querySelector('textarea').value = DEFAULT[lang()].join('\n');
+      var pick = e.target.closest('[data-terms-lang]');
+      if (pick) show(pick.dataset.termsLang);
+      else if (e.target.closest('[data-terms-close]')) o.remove();
+      else if (e.target.closest('[data-terms-reset]')) box.value = DEFAULT[L].join('\n');
       else if (e.target.closest('[data-terms-save]')) {
-        var v = o.querySelector('textarea').value.trim(), old = settings(id).contractTerms || '';
-        var same = v === DEFAULT[lang()].join('\n') ? '' : v;
-        if (same !== old) { saveHouseSettings(id, { contractTerms: same }); logChange(id, ['Điều khoản hợp đồng']); }
+        drafts[L] = box.value;
+        var next = {}, changed = false;
+        ['vi', 'en', 'km'].forEach(function (k) {
+          var v = k in drafts ? drafts[k].trim() : ownTerms(id, k);
+          if (v === DEFAULT[k].join('\n')) v = '';
+          if (v) next[k] = v;
+          if (v !== ownTerms(id, k)) changed = true;
+        });
+        if (changed) { saveHouseSettings(id, { contractTerms: Object.keys(next).length ? next : '' }); logChange(id, ['Điều khoản hợp đồng']); }
         o.remove();
       }
     });
   }
+
   var LABELS = { findBonusPct: 'Thưởng tìm khách', extraPersonFee: 'Phụ thu người ở thêm', extraPersonUtility: 'Điện nước người ở thêm', cashLimit: 'Hạn mức tiền mặt', utility: 'Giá điện nước', bankBin: 'Tài khoản nhận tiền', bankAccount: 'Tài khoản nhận tiền', bankHolder: 'Tài khoản nhận tiền', abaQr: 'Mã QR ABA' };
   function snap(id) { var st = settings(id), h = {}; try { h = (readProperties() || []).find(function (x) { return x.id === id; }) || {}; } catch (e) {} return { st: st, name: h.name, address: h.address, currency: h.currency }; }
   function diff(a, b) {
@@ -471,8 +510,8 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
           var form = node.querySelector('form');
           if (!form || form.dataset.termsEnhanced || !form.querySelector('[name=currency]') || !form.querySelector('[name=address]') || role() !== 'owner') return;
           form.dataset.termsEnhanced = '1';
-          var choice = form.querySelector('[name=propertyChoice]'), id = function () { return choice && choice.value || ''; };
-          var before = id() ? snap(id()) : null;
+          var choice = form.querySelector('[name=propertyChoice]'), id = function () { return choice && choice.value || form.dataset.newHouse || ''; };
+          var before = id() && !form.dataset.newHouse ? snap(id()) : null; // căn mới tạo: không ghi lịch sử "đổi cài đặt"
           var maint = Array.prototype.find.call(form.querySelectorAll('a,button'), function (x) { return /^Lịch bảo trì/.test(x.textContent.trim()); });
           var anchor = form.querySelector('[name=bankHolder]') || form.querySelector('[name=address]');
           var row = document.createElement('button');
@@ -601,7 +640,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   setTimeout(fix, 0);
 })();
 
-// Tên chào ở đầu màn (cạnh nút ngôn ngữ + Thông báo): dài quá thì thu chữ nhỏ dần (tới 15px) cho đủ tên rồi mới cắt
+// Tên chào ở đầu màn (cạnh nút ngôn ngữ + Thông báo): dài quá thì thu chữ nhỏ dần (tới 15px) cho đủ tên rồi mới cắt (cắt đầu tên: "..uyễn Văn Tèo")
 (function () {
   var queued = false;
   function fit() {
@@ -610,11 +649,17 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (!t.offsetParent) return;
       t.style.fontSize = '';
       var size = parseFloat(getComputedStyle(t).fontSize);
-      while (t.scrollWidth > t.clientWidth && size > 15) { size -= 0.5; t.style.fontSize = size + 'px'; }
+      var n = t.querySelector('.greet-name') || t;
+      if (n.dataset.full && n.textContent !== n.dataset.full) n.textContent = n.dataset.full;
+      // Lời chào: giữ cỡ chữ như màn chủ nhà / quản lý, chỉ cắt đầu tên bằng ".."
+      if (n !== t) { if (typeof window.greetFit === 'function') window.greetFit(t); return; }
+      while (n.scrollWidth > n.clientWidth && size > 15) { size -= 0.5; t.style.fontSize = size + 'px'; }
     });
   }
   function queue() { if (!queued) { queued = true; requestAnimationFrame(fit); } }
-  new MutationObserver(queue).observe(document.body, { childList: true, subtree: true, characterData: true });
+  // greetFit tự đổi chữ trong .greet-name: bỏ qua thay đổi đó, không thì chạy vòng mãi
+  function inName(m) { var el = m.target.nodeType === 1 ? m.target : m.target.parentElement; return !!(el && el.closest && el.closest('.greet-name')); }
+  new MutationObserver(function (list) { if (!list.every(inName)) queue(); }).observe(document.body, { childList: true, subtree: true, characterData: true });
   addEventListener('resize', queue);
   queue();
 })();
@@ -741,8 +786,23 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function txt(el) { return el ? String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim() : ''; }
   function on(fn) { handlers.push(fn); return handlers.length - 1; }
+  // Không lặp: bỏ năm hiện tại, bỏ nhãn loại (chấm màu đã nói), bỏ phần dòng dưới đã có ở tiêu đề hoặc trùng nhau
+  function tidy(title, sub) {
+    var y = '/' + new Date().getFullYear(), seen = {};
+    title = String(title || '').split(y).join('');
+    var low = title.toLocaleLowerCase('vi');
+    sub = String(sub || '').split(y).join('').split(' · ').filter(function (p) {
+      p = p.trim(); var k = p.toLocaleLowerCase('vi');
+      if (!p || seen[k] || /^(Sửa chữa|Thanh toán|Hợp đồng|Thông báo của căn)$/.test(p) || low.indexOf(k) >= 0) return false;
+      seen[k] = 1; return true;
+    });
+    if (sub.some(function (p) { return /quá hạn \d+ ngày/i.test(p); })) sub = sub.filter(function (p) { return !/^\d{1,2}\/\d{1,2}$/.test(p.trim()); });
+    sub = sub.join(' · ');
+    return [title, sub];
+  }
   function row(dot, title, sub, btn, fn, extra) {
-    var id = fn ? on(fn) : -1;
+    var id = fn ? on(fn) : -1, clean = tidy(title, sub);
+    title = clean[0]; sub = clean[1];
     return '<div class="work-row th-row' + (extra && extra.urgent ? ' urgent' : '') + '"' + (id >= 0 && !btn ? ' data-th="' + id + '" role="button" tabindex="0"' : '') + '><span class="work-dot dot-' + dot + '"></span><span class="work-main"><span class="work-title">' + esc(title) + '</span>' + (sub ? '<span class="work-sub">' + esc(sub) + '</span>' : '') + '</span>' +
       (extra && extra.amount ? '<span class="th-amount">' + esc(extra.amount) + '</span>' : '') +
       (btn ? '<button type="button" class="work-action" data-th="' + id + '">' + esc(btn) + '</button>' : (id >= 0 ? '<span class="work-chevron">›</span>' : '')) + '</div>';
@@ -750,12 +810,18 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   // Mở một thẻ cũ trong bảng (giữ nguyên nút và sự kiện của thẻ), đóng thì trả thẻ về chỗ cũ
   function sheet(el, title) {
     if (!el) return;
+    // Thẻ trong #tenantConfirmBox: nút của thẻ được bắt ở khung đó, nên đưa cả khung vào bảng và chỉ hiện thẻ này
+    var pick = null, cbox = el.closest && el.closest('#tenantConfirmBox');
+    if (cbox && cbox !== el) { pick = el; el = cbox; pick.classList.add('th-pick'); el.classList.add('th-only'); }
     var home = el.parentNode, next = el.nextSibling, o = document.createElement('div');
     o.className = 'modal-overlay';
     o.innerHTML = '<div class="modal-sheet th-sheet">' + (title ? '<div class="modal-head">' + esc(title) + '</div>' : '') + '<div class="th-sheet-body"></div><div class="modal-actions"><button type="button" data-th-close>Đóng</button></div></div>';
     o.querySelector('.th-sheet-body').appendChild(el);
     el.classList.add('th-in-sheet');
-    function close() { el.classList.remove('th-in-sheet'); if (home && home.isConnected) home.insertBefore(el, next && next.parentNode === home ? next : null); o.remove(); }
+    var mo = null;
+    function close() { if (mo) mo.disconnect(); el.classList.remove('th-in-sheet', 'th-only'); if (pick) pick.classList.remove('th-pick'); if (home && home.isConnected) home.insertBefore(el, next && next.parentNode === home ? next : null); o.remove(); }
+    // Bấm xong (thẻ biến mất khỏi khung) thì tự đóng bảng
+    if (pick) { mo = new MutationObserver(function () { if (!el.contains(pick)) close(); }); mo.observe(el, { childList: true, subtree: true }); }
     o.addEventListener('click', function (e) { if (e.target === o || e.target.closest('[data-th-close]')) close(); });
     (typeof appendToPhone === 'function' ? appendToPhone : function (x) { document.querySelector('.phone').appendChild(x); })(o);
   }
@@ -769,22 +835,37 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   function events(room) { try { return readTenantEventsSafe()[room] || []; } catch (e) { return []; } }
   function stamp(e) { var m = String(e && e.id || '').match(/^(\d{13})/); return m ? Number(m[1]) : 0; }
   function vt(v) { try { return parseViTime(v) || 0; } catch (e) { return 0; } }
+  function nm(v) { return String(v || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase(); }
+  // Tab Yêu cầu của khách: nút ở thanh dưới (giữa Phòng của tôi và Hợp đồng) + trang riêng
+  function reqBox(html, show) {
+    var tabs = document.querySelector('.tabs'), rooms = tabs && tabs.querySelector('.tab[data-id="rooms"]');
+    if (!tabs || !rooms) return;
+    var tab = tabs.querySelector('.tab[data-id="requests"]');
+    if (!tab) { tab = document.createElement('button'); tab.type = 'button'; tab.className = 'tab'; tab.dataset.id = 'requests'; tab.innerHTML = '<i>✎</i>Yêu cầu'; tab.addEventListener('click', function () { go('requests', tab); }); rooms.insertAdjacentElement('beforebegin', tab); }
+    var page = document.getElementById('requests');
+    if (!page) { page = document.createElement('section'); page.className = 'subpage'; page.id = 'requests'; page.innerHTML = '<div id="tenantReq"></div>'; document.getElementById('home').insertAdjacentElement('afterend', page); }
+    document.body.classList.toggle('tr-on', !!show);
+    if (!show && page.classList.contains('active')) { var h = document.querySelector('.tab[data-id="home"]'); if (h) go('home', h); }
+    var box = page.querySelector('#tenantReq');
+    if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+  }
   function short(d) { var m = String(d || '').match(/(\d{1,2})\/(\d{1,2})\/\d{4}/); return m ? m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') : String(d || ''); }
   function render() {
     var portal = document.getElementById('tenantPortal'), sel = document.getElementById('accountSelect');
     if (!portal || !sel) return;
     var acct = String(sel.value || '').split('|');
     var box = document.getElementById('tenantHome2');
-    if (acct[0] !== 'tenant') { if (box) box.remove(); portal.classList.remove('th2'); return; }
+    if (acct[0] !== 'tenant') { if (box) box.remove(); portal.classList.remove('th2'); reqBox('', false); return; }
     var room = acct[2], c = null; try { c = getHomeContract(room); } catch (e) {}
     handlers = [];
     // Người ở cùng đã được ghi dọn đi (hoặc hợp đồng phòng đã lập cho khách khác): không còn xem được phòng
-    if (window.__tenantLeft && !c) {
+    if ((window.__tenantLeft && !c) || (window.roommateLeftEntry && window.roommateLeftEntry(acct.join('|')))) {
       var gone = '<div class="work-section th-section"><div class="work-empty">Anh/chị không còn ở phòng ' + esc(room) + '. Lịch sử thuê vẫn được giữ. Muốn xoá tài khoản thì bấm vào logo ở góc trái.</div></div>';
       if (!box) { box = document.createElement('div'); box.id = 'tenantHome2'; (portal.querySelector(':scope > .head') || portal.firstElementChild).insertAdjacentElement('afterend', box); }
       if (box.dataset.html !== gone) { box.dataset.html = gone; box.innerHTML = gone; }
       if (!portal.classList.contains('th2')) portal.classList.add('th2');
       if (!portal.classList.contains('th-gone')) portal.classList.add('th-gone');
+      reqBox('', false);
       return;
     }
     if (portal.classList.contains('th-gone')) portal.classList.remove('th-gone');
@@ -801,6 +882,9 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       var t = card.querySelector('h4,h5,strong,.title') || card.querySelector('.tenant-title'); todo.push(row('handover', txt(t) || 'Cần xác nhận', /hư|sửa/i.test(txt(card)) ? 'Đã sửa xong · cần anh/chị xác nhận' : 'Cần anh/chị xác nhận', 'Xem', function () { sheet(card, ''); })); });
     // Người ở cùng: không ký, không gia hạn, không trả phòng thay khách chính
     var mate = window.roommateEntry ? window.roommateEntry(acct.join('|')) : null;
+    if (mate && window.householdMoveOutNote) { var mo2 = window.householdMoveOutNote(room); if (mo2) todo.push(row('room', mo2.title, mo2.sub, mo2.btn, mo2.run, { urgent: !!mo2.btn })); }
+    if (window.householdTenantTodo) window.householdTenantTodo(room).forEach(function (x) { todo.push(row(x.kind || 'contract', x.title, x.sub, x.btn || '', x.run || null, { urgent: !!x.urgent })); });
+    if (mate && mate.p.leftRequest && !mate.p.leftRequest.self) todo.push(row('room', mate.p.leftRequest.by + ' báo anh/chị đã dọn đi', 'Còn ở thì bấm Xem → Tôi vẫn ở', 'Xem', function () { window.openHousehold(room); }, { urgent: true }));
     var lease = document.getElementById('tenantLeaseChoice');
     if (!mate && lease && txt(lease)) todo.push(row('contract', txt(lease.querySelector('.tenant-title,strong')) || 'Hợp đồng sắp hết hạn', 'Chọn gia hạn hoặc trả phòng', 'Xem', function () { sheet(lease, ''); }));
     var td = document.getElementById('tenantTodo');
@@ -811,28 +895,47 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     var due = document.getElementById('tenantDueCard'), amtEl = document.getElementById('tenantDueAmount');
     var amt = amtEl ? Number(String(amtEl.textContent).replace(/[^\d.]/g, '')) || 0 : 0;
     var pay = Array.prototype.find.call(portal.querySelectorAll('.tenant-actions button'), function (b) { return /thanh toán/i.test(b.textContent); });
-    var reported = pay && /^Đã báo thanh toán/.test(pay.textContent.trim());
-    if (due && !due.hidden && amt > 0) todo.push(row('payment', txt(document.getElementById('tenantDueCopy')) || 'Khoản cần đóng', [amtEl.textContent.trim(), reported ? 'đã báo · chờ quản lý xác nhận' : txt(due.querySelector('small')).replace(/^KHOẢN THANH TOÁN · /i, '')].filter(Boolean).join(' · '), reported || !pay || pay.hidden ? '' : 'Báo đã thanh toán', reported || !pay ? null : function () { pay.click(); }, { urgent: due.classList.contains('late') }));
+    var pendPay = window.tenantPendingPayment ? window.tenantPendingPayment(room) : null;
+    var reported = !!pendPay || (pay && /^Đã báo thanh toán/.test(pay.textContent.trim()));
+    var lastPay = (((window.readTenantEventsSafe ? window.readTenantEventsSafe() : {})[room]) || []).filter(function (e) { return e && e.kind === 'payment' && e.status !== 'Đã huỷ'; })[0];
+    var rejectedPay = !reported && lastPay && lastPay.status === 'Từ chối';
+    // Tiêu đề chỉ tên khoản; tiền, hạn, khoản sắp tới xuống dòng dưới (không lặp số tiền)
+    var dueBits = txt(document.getElementById('tenantDueCopy')).split(' · Sắp tới: ');
+    // Hợp đồng chưa ký / chưa duyệt thì chưa có khoản nào phải đóng (cọc + kỳ đầu đóng sau khi nhận phòng)
+    var unsigned = c && /^(Chờ người thuê ký|Chờ chủ nhà duyệt|Từ chối)/.test(c.status || '');
+    if (due && !due.hidden && amt > 0 && !unsigned) todo.push(row('payment', dueBits[0].replace(/\s*[$]?[\d.,]+\s*[$₫]?$/, '') || 'Khoản cần đóng', [amtEl.textContent.trim(), reported ? 'đã báo' + (pendPay && pendPay.date ? ' ' + String(pendPay.date).slice(0, 5) : '') + ' · chờ xác nhận' : rejectedPay ? 'bị từ chối: ' + (lastPay.rejectReason || '') : txt(due.querySelector('small')).replace(/^KHOẢN THANH TOÁN · /i, ''), dueBits[1] ? 'sắp tới: ' + dueBits[1] : ''].filter(Boolean).join(' · '), !pay || pay.hidden ? '' : reported ? 'Xem' : rejectedPay ? 'Báo lại' : 'Thanh toán', !pay ? null : function () { pay.click(); }, { urgent: !reported && due.classList.contains('late') }));
     var pa = document.getElementById('tenantPriorityAlerts');
     if (pa) pa.querySelectorAll('.tenant-priority-item').forEach(function (it) {
       var head = txt(it.querySelector('strong')), body = txt(it.querySelector('span')), repair = it.classList.contains('repair');
       var parts = body.split(' · ');
-      if (repair && todo.some(function (h) { return h.indexOf('>' + esc(parts[0]) + '<') >= 0; })) return; // đã có dòng cần xác nhận cùng việc
+      if (repair && todo.some(function (h) { return h.indexOf('>' + esc(parts[0]) + '<') >= 0; })) return;
+      if (repair && mate && !events(room).some(function (e) { return e && e.kind === 'repair' && String(e.title || '').replace(/^Đã báo hư hỏng:\s*/, '') === parts[0] && nm(e.tenantName) === nm(acct[1]); })) return; // đã có dòng cần xác nhận cùng việc
       if (/bàn giao/i.test(head) && todo.some(function (h) { return h.indexOf('biên bản giao phòng') >= 0; })) return; // bước Nhận phòng đã có nút xem biên bản
       var ws = repair && window.waitingSteps ? window.waitingSteps().filter(function (o) { return o.room === room && o.type === 'repair' && o.subject === parts[0] && o.show.indexOf('tenant') >= 0; })[0] : null;
       todo.push(repair ? row('repair', parts[0], ['Sửa chữa', ws ? ws.sub : parts.slice(1).join(' · ') || 'Đang xử lý'].join(' · '), '', null, { urgent: ws && ws.late }) : row(it.classList.contains('expiring') ? 'contract' : 'room', head, body, '', null, { urgent: /quá hạn|trễ/i.test(head + body) }));
     });
     var vio = document.getElementById('tenantViolations'), vItems = vio ? vio.querySelectorAll('.notice-item') : [];
     var unseen = Array.prototype.filter.call(vItems, function (n) { return /Chờ khách xem/.test(n.textContent); });
-    if (unseen.length) todo.push(row('room', 'Biên bản vi phạm mới', unseen.length + ' biên bản chưa xem', 'Xem', function () { sheet(vio, ''); }, { urgent: true }));
+    if (unseen.length && (!mate || (window.isDelegateFor && window.isDelegateFor(room)))) todo.push(row('room', 'Biên bản vi phạm mới', unseen.length + ' biên bản chưa xem', 'Xem', function () { sheet(vio, ''); }, { urgent: true }));
     var nt = document.getElementById('tenantNotices');
-    if (nt) nt.querySelectorAll('.notice-item.unread').forEach(function (n) { todo.push(row('notice', txt(n.querySelector('h5,strong,b,h4')) || 'Thông báo mới', 'Thông báo của căn', 'Xem', function () { sheet(nt, ''); })); });
-    if (!mate && c && window.openHousehold) (c.roommateInvites || []).filter(function (v) { return v.status === 'Từ chối'; }).forEach(function (v) { todo.push(row('contract', 'Không duyệt người ở cùng: ' + v.name, v.reason || '', 'Xem', function () { window.openHousehold(room); })); });
+    // Bấm Xem ở Việc cần làm là đã xem (trước đây phải bấm thêm vào thẻ thông báo nên dòng việc còn mãi)
+    if (nt) nt.querySelectorAll('.notice-item.unread').forEach(function (n) { todo.push(row('notice', txt(n.querySelector('h5,strong,b,h4')) || 'Thông báo mới', 'Thông báo của căn', 'Xem', function () {
+      n.click();
+      try { renderTenantNotices(); } catch (e) {}
+      sheet(document.getElementById('tenantNotices') || nt, '');
+    })); });
+    // Khiếu nại: chủ nhà đã trả lời mà khách chưa mở xem (khiếu nại trả lời trước 13/11 coi như đã xem)
+    try { readComplaints().forEach(function (cm) {
+      if (cm.tenantKey !== acct.join('|') || cm.status !== 'Đã trả lời' || cm.tenantSeenAt || vt(cm.repliedAt) < new Date(2026, 10, 13).getTime()) return;
+      todo.push(row('complaint', 'Chủ nhà đã trả lời khiếu nại', cm.reply, 'Xem', function () { complaintReply(cm); }));
+    }); } catch (e) {}
+    // Góp ý về app khách đã gửi, chưa xong: vẫn là việc đang theo dõi (tới khi chủ nhà trả lời xong và khách đã đọc)
+    if (window.appFeedbackTodo) window.appFeedbackTodo().forEach(function (f) { var a = f.actions[0]; todo.push(row('feedback', f.title, f.sub, a ? a.label : '', function () { var u = currentAppUser(); if (u) openAppFeedback(u); })); });
     // Bước đang chờ quản lý / chủ nhà làm: khách cũng thấy đang chờ ai
     if (window.waitingSteps) window.waitingSteps().forEach(function (o) {
       if (o.room !== room || o.show.indexOf('tenant') < 0) return;
       if (mate) return; // người ở cùng không theo dõi việc hợp đồng của khách chính
-      if (todo.some(function (h) { return h.indexOf(esc(o.subject)) >= 0; })) return;
+      if (todo.some(function (h) { return h.indexOf(esc(tidy(o.subject, '')[0])) >= 0; })) return;
       todo.push(row(o.type === 'room' ? 'room' : 'contract', o.subject, o.sub, '', null, { urgent: o.late }));
     });
     // 2) Dòng tiền
@@ -842,15 +945,47 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (dd) { var d = new Date(), n = new Date(d.getFullYear(), d.getMonth(), Number(dd)); if (n.getTime() < d.setHours(0, 0, 0, 0) + 1 || amt <= 0) n = new Date(n.getFullYear(), n.getMonth() + (n.getTime() <= Date.now() || amt <= 0 ? 1 : 0), Number(dd)); nextTxt = String(n.getDate()).padStart(2, '0') + '/' + String(n.getMonth() + 1).padStart(2, '0'); }
       H += '<div class="th-money"><span>Tiền thuê <b>' + esc(rent) + '</b>/tháng</span><span class="' + (amt > 0 ? 'th-due' : 'th-ok') + '">' + (amt > 0 ? 'Cần đóng ' + esc(amtEl.textContent.trim()) : 'Đã đóng đủ' + (nextTxt ? ' · kỳ sau ' + nextTxt : '')) + '</span></div>';
     }
-    H += '<div class="work-section th-section"><div class="work-head"><span>Việc cần làm</span><span class="work-count' + (todo.length ? ' urgent' : '') + '">' + todo.length + '</span></div>' +
+    // Góp ý: nút nhỏ cạnh tiêu đề Việc cần làm, giống chủ nhà / quản lý (không nằm trong Khác)
+    var fbBtn = portal.querySelector('.tenant-actions [data-complaint-open]');
+    H += '<div class="work-section th-section"><div class="work-head"><span>Việc cần làm</span><span class="work-count' + (todo.length ? ' urgent' : '') + '">' + todo.length + '</span>' +
+      (fbBtn ? '<button type="button" class="notice-open app-fb-open" data-th="' + on(function () { fbBtn.click(); }) + '">Góp ý</button>' : '') + '</div>' +
       (todo.length ? '<div class="work-list">' + todo.join('') + '</div>' : '<div class="work-empty">Không có việc nào đang chờ</div>') + '</div>';
-    // 3) Nút
-    var acts = Array.prototype.slice.call(portal.querySelectorAll('.tenant-actions button')).filter(function (b) { return b !== pay && !b.hidden && txt(b) && !b.closest('#tenantHome2'); });
+    // 3) Tab Yêu cầu (anh chốt 14/11): 4 nút lớn + các yêu cầu đang xử lý; trang chủ không còn hàng nút
+    var acts = Array.prototype.slice.call(portal.querySelectorAll('.tenant-actions button')).filter(function (b) { return b !== pay && b !== fbBtn && !b.hidden && txt(b) && !b.closest('#tenantHome2') && !b.closest('#tenantReq'); });
     if (mate) acts = acts.filter(function (b) { return !/trả phòng|gia hạn|hợp đồng/i.test(b.textContent); });
-    if (c && c.status === 'Đã ký' && window.householdButton) acts.push(window.householdButton(room));
-    var repairBtn = acts.find(function (b) { return /hư hỏng/i.test(b.textContent); }), others = acts.filter(function (b) { return b !== repairBtn; }).sort(function (a, b) { return (/trả phòng/i.test(a.textContent) ? 1 : 0) - (/trả phòng/i.test(b.textContent) ? 1 : 0); }); // Báo trả phòng xuống cuối, tránh bấm nhầm
-    H += '<div class="th-actions">' + (repairBtn ? '<button type="button" class="th-main" data-th="' + on(function () { repairBtn.click(); }) + '">' + esc(txt(repairBtn)) + '</button>' : '') +
-      (others.length ? '<button type="button" class="th-more" data-th="' + on(function () { list('Việc khác', others); }) + '">Khác ›</button>' : '') + '</div>';
+    var guestBtn = acts.find(function (b) { return b.matches('[data-guest-open]'); });
+    var livedIn = c && c.status === 'Đã ký' && (typeof roomRented !== 'function' || roomRented(room));
+    var repairBtn = acts.find(function (b) { return /hư hỏng/i.test(b.textContent); }), outBtn = acts.find(function (b) { return /trả phòng/i.test(b.textContent); });
+    var houseBtn = c && c.status === 'Đã ký' && window.householdButton ? window.householdButton(room) : null;
+    var others = acts.filter(function (b) { return b !== repairBtn && b !== guestBtn && b !== outBtn && !/^Xem hợp đồng/i.test(txt(b)); });
+    function big(ic, label, b, off) { return '<button type="button" aria-label="' + esc(label) + '" class="tr-btn' + (off ? ' off' : '') + '"' + (b && !off ? ' data-th="' + on(function () { b.click(); }) + '"' : ' disabled') + '><span class="tr-ic tr-' + ic + '"></span><span>' + esc(label) + '</span></button>'; }
+    var R = '<div class="head tr-head"><div><div class="eyebrow">PHÒNG ' + esc(room) + '</div><div class="title">Yêu cầu</div></div></div>';
+    R += '<div class="tr-grid">' + big('repair', 'Báo hư hỏng / cần sửa', repairBtn, !livedIn) + big('guest', 'Báo người ở lại', guestBtn, !livedIn) + big('mate', 'Người ở cùng', houseBtn, !houseBtn) + (mate ? '' : big('out', 'Báo trả phòng', outBtn, !outBtn)) + '</div>';
+    if (!livedIn) R += '<p class="tr-note">Nhận phòng xong mới báo hư hỏng và người ở lại được.</p>';
+    // Đang xử lý: sửa chữa chưa xong, người ở lại chưa xem, người ở cùng chờ duyệt, trả phòng / hoàn cọc
+    var reqs = [], doneSt = ['Đã xác nhận', 'Đã hoàn tất', 'Đã sửa', 'Từ chối', 'Đã huỷ'];
+    function cardFor(re) { var hit = null; if (cb) cb.querySelectorAll('.confirm-card').forEach(function (k) { if (!hit && re.test(txt(k))) hit = k; }); return hit; }
+    events(room).forEach(function (e) {
+      if (!e || e.kind !== 'repair' || doneSt.indexOf(e.status) >= 0) return;
+      if (mate && nm(e.tenantName) !== nm(acct[1])) return; // người ở cùng: chỉ việc mình báo
+      var what = String(e.title || '').replace(/^Đã báo hư hỏng:\s*/, ''), ts = stamp(e) || vt(e.date), st = e.status || 'Chờ xử lý';
+      var w = window.waitingSteps ? window.waitingSteps().filter(function (o) { return o.room === room && o.type === 'repair' && o.subject === what && o.show.indexOf('tenant') >= 0; })[0] : null;
+      var sub = st === 'Chờ khách xác nhận' ? 'Đã sửa xong · cần anh/chị xác nhận' : st === 'Chờ xử lý' ? (w ? w.sub : 'Đang chờ quản lý tiếp nhận') : 'Đang sửa';
+      var card = st === 'Chờ khách xác nhận' ? cardFor(new RegExp(what.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))) : null;
+      reqs.push({ ts: ts, h: row('repair', 'Sửa: ' + what, (ts ? short(new Date(ts).toLocaleDateString('vi-VN')) + ' · ' : '') + sub, card ? 'Xem' : '', card ? function () { sheet(card, ''); } : null, { urgent: (w && w.late) || st === 'Chờ khách xác nhận' }) });
+    });
+    if (window.waitingSteps) window.waitingSteps().forEach(function (o) {
+      if (o.room !== room || o.type === 'repair' || !/^(Báo trả phòng|Hoàn cọc|Báo có người ở lại|Người ở cùng)/.test(o.subject)) return;
+      if (mate && /^(Báo trả phòng|Hoàn cọc)/.test(o.subject)) return;
+      if (mate && /^Báo có người ở lại/.test(o.subject) && nm(o.by) !== nm(acct[1])) return;
+      var mine = o.who === 'tenant', mo = cb && cb.querySelector('[data-moveout-cancel]'), card = /^Báo trả phòng/.test(o.subject) ? (mo ? mo.closest('.confirm-card') : null) : mine ? cardFor(/hoàn cọc/i) : null;
+      reqs.push({ ts: o.since || 0, h: row(/^Người ở cùng/.test(o.subject) ? 'contract' : 'room', o.subject, (o.since ? short(new Date(o.since).toLocaleDateString('vi-VN')) + ' · ' : '') + (mine ? 'Cần anh/chị xác nhận' : o.sub), card ? 'Xem' : '', card ? function () { sheet(card, ''); } : null, { urgent: o.late || mine }) });
+    });
+    reqs.sort(function (x, y) { return y.ts - x.ts; });
+    R += '<div class="work-section th-section"><div class="work-head"><span>Đang xử lý</span><span class="work-count">' + reqs.length + '</span></div>' +
+      (reqs.length ? '<div class="work-list">' + reqs.map(function (x) { return x.h; }).join('') + '</div>' : '<div class="work-empty">Không có yêu cầu nào đang xử lý</div>') + '</div>';
+    if (others.length) R += '<div class="work-section th-section"><div class="work-head"><span>Việc khác</span></div><div class="work-list">' + others.map(function (b) { return row('room', txt(b), '', '', function () { b.click(); }); }).join('') + '</div></div>';
+    reqBox(R, true);
     // 4) Vi phạm
     if (vItems.length) H += '<div class="work-list th-vio">' + row('room', 'Vi phạm nội quy · ' + vItems.length + ' lần', 'Gần nhất: ' + txt(vItems[0].querySelector('h5,strong,b')).replace(/^Lần \d+:\s*/, '') + ' · ' + short(txt(vItems[0].querySelector('small'))), '', function () { sheet(vio, ''); }) + '</div>';
     // 5) Lịch sử: chỉ việc của khách
@@ -863,8 +998,11 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (/xác nhận ký hợp đồng/.test(t) && c) ts = vt(c.signedAt);
       if (/^Nhận phòng/.test(t) && hand) ts = vt(hand.confirmedAt);
       if (!ts) ts = vt('12:00:00 ' + date) - i;
+      if (mate && ts && ts < vt(mate.p.at)) return; // người ở cùng: không xem việc trước khi vào ở
       var kind = /hư hỏng|sửa/i.test(t) ? 'repair' : /chuyển khoản|thanh toán|tiền/i.test(t) ? 'payment' : /hợp đồng/i.test(t) ? 'contract' : 'room';
-      var title = t.replace(/^Đã báo hư hỏng:\s*/, 'Báo hư: ').replace(/^Đã báo chuyển khoản:\s*/, 'Báo đã chuyển: ').replace(/^Người thuê xác nhận ký hợp đồng/, 'Ký hợp đồng');
+      // Người ở cùng: chỉ việc của mình, tiền chung và thông báo (không thấy việc hợp đồng, trả phòng của khách chính)
+      if (mate && kind !== 'payment' && (kind === 'contract' || /trả phòng|hoàn cọc|biên bản|gia hạn/i.test(t) || (e && e.tenantName && String(e.tenantName).normalize('NFC') !== String(acct[1]).normalize('NFC')))) return;
+      var title = t.replace(/^Đã báo hư hỏng:\s*/, 'Báo hư: ').replace(/^Đã báo chuyển khoản:\s*/, 'Báo đã trả: ').replace(/^Người thuê xác nhận ký hợp đồng/, 'Ký hợp đồng').replace(/^Nhắc khách .+ ký hợp đồng$/, 'Nhắc ký hợp đồng').replace(/^Khách nhắc hẹn ngày giao phòng$/, 'Đã nhắc quản lý hẹn ngày giao phòng');
       hist.push({ ts: ts, t: title, sub: [short(date), st && st !== title ? st : ''].filter(Boolean).join(' · '), detail: p, kind: kind });
     });
     document.querySelectorAll('#tenantReceipts [data-receipt]').forEach(function (b) {
@@ -876,6 +1014,12 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       var cd = (sm.match(/\d{1,2}\/\d{1,2}\/\d{4}/) || [])[0];
       hist.push({ ts: cd ? vt('23:59:00 ' + cd) : 0, t: 'Góp ý: ' + body, sub: sm.replace(/\d{1,2}\/\d{1,2}\/\d{4}/, short(cd)), detail: txt(it.querySelector('.complaint-reply')), kind: 'notice' });
     });
+    // Thông báo của căn đã xem: còn lại trong Lịch sử, bấm xem lại nội dung
+    try { tenantNotices(acct.join('|')).forEach(function (n) {
+      var seen = n.readBy && n.readBy[acct.join('|')];
+      if (!seen) return;
+      hist.push({ ts: vt(n.sentAt) || vt(seen), t: 'Thông báo: ' + (n.title || ''), sub: [short(n.sentAt), 'đã xem ' + short(seen)].join(' · '), detail: n.body || '', kind: 'notice' });
+    }); } catch (e) {}
     hist.sort(function (a, b) { return b.ts - a.ts; });
     var shown = showAll ? hist : hist.slice(0, 5);
     H += '<div class="work-section th-section"><div class="work-head"><span>Lịch sử</span><span class="work-count">' + hist.length + '</span>' + (hist.length > 5 ? '<button type="button" class="work-more' + (showAll ? ' less' : '') + '" data-th="' + on(function () { showAll = !showAll; render(); }) + '">' + (showAll ? 'Thu gọn' : 'Xem tất cả') + '</button>' : '') + '</div>' +
@@ -886,6 +1030,18 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     if (box.dataset.html !== H) { box.dataset.html = H; box.innerHTML = H; }
     if (!portal.classList.contains('th2')) portal.classList.add('th2');
   }
+  function complaintReply(cm) {
+    var o = document.createElement('div');
+    o.className = 'modal-overlay';
+    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Khiếu nại</div><p class="note" translate="no">“' + esc(cm.text) + '”</p><p class="confirm-text"><b>' + esc(cm.repliedBy || 'Chủ nhà') + ':</b> <span translate="no">' + esc(cm.reply) + '</span></p><div class="modal-actions"><button type="button" class="save" data-th-close>Đã xem</button></div></div>';
+    o.addEventListener('click', function (e) {
+      if (e.target !== o && !e.target.closest('[data-th-close]')) return;
+      var list = readComplaints(), x = list.find(function (i) { return i.id === cm.id; });
+      if (x) { x.tenantSeenAt = new Date().toLocaleString('vi-VN'); saveComplaints(list); }
+      o.remove(); render();
+    });
+    (typeof appendToPhone === 'function' ? appendToPhone : function (x) { document.querySelector('.phone').appendChild(x); })(o);
+  }
   function appConfirmInfo(h) {
     var o = document.createElement('div');
     o.className = 'modal-overlay';
@@ -894,7 +1050,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     (typeof appendToPhone === 'function' ? appendToPhone : function (x) { document.querySelector('.phone').appendChild(x); })(o);
   }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('#tenantHome2 [data-th]');
+    var b = e.target.closest && e.target.closest('#tenantHome2 [data-th], #tenantReq [data-th]');
     if (!b) return;
     var fn = handlers[Number(b.dataset.th)];
     if (fn) fn();
@@ -910,221 +1066,691 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
 })();
 
-// Người ở cùng phòng (anh chốt 12/11): khách chính mời, quản lý duyệt rồi tạo tài khoản riêng.
-// Cả phòng chung một hoá đơn, ai chuyển tiền thì người đó báo. Dọn đi thì khách chính hoặc quản lý bỏ ra;
-// hợp đồng và cọc vẫn đứng tên khách chính.
+// Người ở cùng phòng (anh chốt 12/11, chốt lại 14/11 theo 5 phản biện):
+// - Khách chính mời → quản lý phụ trách phòng duyệt (phòng chưa giao: chủ nhà). Chủ nhà / quản lý thì thêm thẳng.
+// - Người không cần tài khoản (trẻ em, người không dùng điện thoại): chỉ cần tên + giấy tờ, vẫn tính người và phụ phí.
+// - Nhận người ở cùng theo mã tài khoản (uuid) / số điện thoại, không theo tên.
+// - Dọn đi: người ở cùng tự báo (có hiệu lực ngay); khách chính báo thì quản lý xác nhận; quản lý ghi thì ngay.
+// - Hợp đồng và cọc vẫn đứng tên khách chính. Số người = số người ghi trong hợp đồng + người ở cùng đang ở.
 (function () {
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function norm(s) { return String(s == null ? '' : s).normalize('NFC').replace(/\s+/g, ' ').trim(); }
   function acct() { var s = document.getElementById('accountSelect'); return s ? String(s.value || '') : ''; }
   function contracts() { try { return readHomeContracts() || {}; } catch (e) { return {}; } }
   function now() { return new Date().toLocaleString('vi-VN'); }
   function day(at) { return String(at || '').split(' ').pop(); }
   function phone(o) { (typeof appendToPhone === 'function' ? appendToPhone : function (x) { document.querySelector('.phone').appendChild(x); })(o); }
-  function refresh() { ['renderManagementOverview', 'refreshTenantScreen', '__th2Soon'].forEach(function (f) { try { if (typeof window[f] === 'function') window[f](); } catch (e) {} }); }
-  function mates(c) { return ((c && c.extraPeople) || []).filter(function (p) { return !p.leftAt; }); }
-  // Tài khoản người ở cùng: có trong danh sách người ở thêm của hợp đồng
-  window.isRoommateKey = function (key) {
+  function refresh() { ['renderManagementOverview', 'refreshTenantScreen', '__th2Soon', 'renderWorkCenter'].forEach(function (f) { try { if (typeof window[f] === 'function') window[f](); } catch (e) {} }); }
+  function serverMe() { try { return JSON.parse(localStorage.getItem('homeServerUser') || 'null'); } catch (e) { return null; } }
+  function house(room) { try { return propertyIdForRoom(room); } catch (e) { return ''; } }
+  function signed(c) { return !!c && /^(Đã ký|Còn hiệu lực|Sắp hết hạn)$/.test(c.status || ''); }
+  function ccOf(room) { try { return isCambodiaHouse(house(room)) ? '855' : '84'; } catch (e) { return '84'; } }
+  function showPh(v) {
+    var raw = String(v || '').trim(), d = raw.replace(/\D/g, '');
+    if (!d) return raw;
+    if (/^\+?855/.test(raw) && raw.charAt(0) === '+') { var r = d.slice(3).replace(/^0/, ''); return '+855 ' + r.replace(/^(\d{2})(\d{3})(\d+)$/, '$1 $2 $3'); }
+    if (raw.charAt(0) === '+' && d.indexOf('84') === 0) d = '0' + d.slice(2).replace(/^0/, '');
+    else if (raw.charAt(0) === '+') return raw;
+    return d.length === 10 ? d.replace(/^(\d{4})(\d{3})(\d{3})$/, '$1 $2 $3') : d;
+  }
+  window.homeShowPhone = showPh;
+  function pk(ph, room) { try { return phoneKey(ph, ccOf(room)); } catch (e) { return String(ph || '').replace(/\D/g, ''); } }
+  function userByKey(key) { return (readUsers() || []).find(function (u) { return u.key === key; }) || null; }
+  function all(c) { return (c && c.extraPeople) || []; }
+  function mates(c) { return all(c).filter(function (p) { return !p.leftAt; }); }
+  function count(p) { return Number(p.count) || 1; }
+  var DAYMS = 864e5;
+  function iso(t) { var d = new Date(t || Date.now()); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function today() { return iso(); }
+  function vnDate(x) { return String(x || '').split('-').reverse().join('/'); }
+  function dstart(t) { var d = new Date(t || Date.now()); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function ageOf(birth) { if (!birth) return null; var b = new Date(birth + 'T00:00'), n = new Date(), a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; }
+  // Phòng đang trả: khách chính đã báo trả phòng, hoặc đang làm hoàn cọc → không thêm người mới
+  function movingOut(room) { var mo = null, r = null; try { mo = moveOutRequest(room); } catch (e) {} try { r = readCheckouts()[room]; } catch (e) {} return !!mo || !!(r && r.status && r.status !== 'Đã hoàn cọc'); }
+  function delegateOf(c) { var d = c && c.delegate; return d && String(d.until || '') >= today() ? d : null; }
+  // Giấy tờ / tuổi hiện trong danh sách và lúc duyệt
+  function idTag(p) {
+    var t = [];
+    if (p.idType === 'passport') t.push('hộ chiếu' + (p.visaUntil ? ' · thị thực đến ' + vnDate(p.visaUntil) : ''));
+    if (p.birth) t.push('sinh ' + vnDate(p.birth) + (p.guardian ? ' · giám hộ ' + p.guardian : ''));
+    return t.join(' · ');
+  }
+  function idRows(v) {
+    var r = [];
+    if (v.idType === 'passport') r.push(['Hộ chiếu', [v.passportNo, v.visaType ? 'thị thực ' + v.visaType : '', v.visaUntil ? 'đến ' + vnDate(v.visaUntil) : ''].filter(Boolean).join(' · ')]);
+    if (v.birth) r.push(['Ngày sinh', vnDate(v.birth) + (ageOf(v.birth) != null ? ' (' + ageOf(v.birth) + ' tuổi)' : '')]);
+    if (v.guardian) r.push(['Người giám hộ', v.guardian]);
+    if (v.consentAt) r.push(['Đồng ý lưu giấy tờ', (v.consentBy ? v.consentBy + ' xác nhận · ' : '') + day(v.consentAt)]);
+    if (v.noAccountReason) r.push(['Lý do không cần tài khoản', v.noAccountReason]);
+    return r;
+  }
+  var EXTRA_FIELDS = ['passportNo', 'visaType', 'visaUntil', 'birth', 'guardian', 'noAccountReason', 'consentAt', 'consentBy'];
+  // Người này có phải tài khoản `key` không: theo mã tài khoản, số điện thoại, rồi mới tới khoá cũ (có tên)
+  function same(p, key, room) {
+    if (!p || !key) return false;
+    if (p.account && p.account === key) return true;
+    var u = userByKey(key), me = serverMe();
+    var uuid = (u && u.uuid) || (me && me.key === key ? me.id : ''), ph = (u && u.phone) || (me && me.key === key ? me.phone : '');
+    if (p.uuid && uuid && p.uuid === uuid) return true;
+    if (p.phoneKey && ph && p.phoneKey === pk(ph, room)) return true;
+    var parts = String(key).split('|');
+    return !!(p.account && norm(String(p.account).split('|')[1]) === norm(parts[1]) && String(p.account).split('|')[2] === parts[2]);
+  }
+  function find(key, onlyActive) {
     var room = String(key || '').split('|')[2], c = room && contracts()[room];
-    return !!(c && (c.extraPeople || []).some(function (p) { return p.account === key; }));
-  };
-  window.roommateEntry = function (key) {
-    var room = String(key || '').split('|')[2], c = room && contracts()[room];
-    var p = c && mates(c).find(function (x) { return x.account === key; });
+    if (!c || String(key).split('|')[0] !== 'tenant') return null;
+    var list = all(c).filter(function (x) { return x.account && same(x, key, room); });
+    var p = list.filter(function (x) { return !x.leftAt; })[0] || (onlyActive ? null : list[list.length - 1]);
     return p ? { room: room, p: p, c: c } : null;
+  }
+  // Có từng là người ở cùng của hợp đồng phòng này không (kể cả đã dọn đi) — dùng để chặn quyền khách chính
+  window.isRoommateKey = function (key) { return !!find(key, false); };
+  window.roommateEntry = function (key) { return find(key, true); };
+  // Tab Người dùng: phân biệt khách chính / người ở cùng (anh 15/11)
+  window.householdRoleOf = function (user) {
+    if (!user || user.role !== 'tenant') return null;
+    var f = find(user.key, false);
+    if (f) return { mate: true, left: !!f.p.leftAt, main: mainName(f.room, f.c) };
+    var c = contracts()[user.room];
+    return c && mates(c).length && norm(c.tenantName) === norm(user.fullName || user.name) ? { isMain: true } : null;
   };
+  window.householdSortUsers = function (list) {
+    var rank = function (u) { if (u.role !== 'tenant') return null; var r = window.householdRoleOf(u); return r && r.mate ? (r.left ? 2 : 1) : 0; };
+    var others = list.filter(function (u) { return u.role !== 'tenant'; }), ts = list.filter(function (u) { return u.role === 'tenant'; });
+    var order = {}; ts.forEach(function (u, i) { if (!(u.room in order)) order[u.room] = i; });
+    return others.concat(ts.map(function (u, i) { return { u: u, i: i, r: rank(u) }; }).sort(function (a, b) {
+      return (order[a.u.room] - order[b.u.room]) || (a.r - b.r) || (a.i - b.i);
+    }).map(function (x) { return x.u; }));
+  };
+  window.roommateLeftEntry = function (key) { var r = find(key, false); return r && r.p.leftAt ? r : null; };
   // Tiền phòng tính theo khách chính: người ở cùng xem và báo thanh toán chung một hoá đơn
   window.householdKey = function (key) {
     var r = window.roommateEntry(key);
     if (!r) return key;
-    var u = null; try { u = roomTenantUser(r.room); } catch (e) {}
+    var u = mainUser(r.room, r.c);
     return u && u.key !== key ? u.key : key;
   };
-  function mainName(room, c) { var u = null; try { u = roomTenantUser(room); } catch (e) {} return (c && c.tenantName) || (u && u.name) || ''; }
-  function isMain(room) { var a = acct().split('|'); return a[0] === 'tenant' && a[2] === room && !window.roommateEntry(acct()); }
-  function isStaff(room) { try { return ['owner', 'manager'].indexOf(acct().split('|')[0]) >= 0 && canManageCheckout(room); } catch (e) { return false; } }
-  function feeNote(room) {
-    var fee = 0, house = ''; try { fee = extraPersonMonthly(room); house = propertyIdForRoom(room); } catch (e) {}
-    return fee > 0 ? 'Từ kỳ sau thu thêm ' + amountForHouse(fee, house) + ' / người / tháng.' : '';
+  function mainUser(room, c) {
+    c = c || contracts()[room] || {};
+    var list = (readUsers() || []).filter(function (u) { return u.role === 'tenant' && u.room === room && u.status !== 'Đã xoá' && !all(c).some(function (p) { return p.account && same(p, u.key, room); }); });
+    return list.find(function (u) { return norm(u.name) === norm(c.tenantName); }) || list[0] || null;
   }
-  function err(form, t) { var b = form.querySelector('.user-error'); b.hidden = false; b.textContent = t; }
+  function mainName(room, c) { var u = mainUser(room, c); return (c && c.tenantName) || (u && u.name) || ''; }
+  function isMain(room) { var a = acct().split('|'); return a[0] === 'tenant' && a[2] === room && !window.isRoommateKey(acct()); }
+  function isMate(room) { var a = acct().split('|'); return a[0] === 'tenant' && a[2] === room && !!window.roommateEntry(acct()); }
+  // Người được duyệt / thêm thẳng: chủ nhà, quản lý phụ trách phòng (phòng chưa giao ai thì chỉ chủ nhà)
+  function isStaff(room) { try { return ['owner', 'manager'].indexOf(acct().split('|')[0]) >= 0 && canManageCheckout(room); } catch (e) { return false; } }
+  window.householdIsStaff = isStaff;
+  function feeNote(room) {
+    var fee = 0; try { fee = extraPersonMonthly(room); } catch (e) {}
+    return fee > 0 ? 'Thu thêm ' + amountForHouse(fee, house(room)) + ' / người / tháng, tháng đầu tính theo số ngày ở.' : '';
+  }
+  function err(form, t) { var b = form.querySelector('.user-error'); b.hidden = false; b.textContent = t; b.scrollIntoView && b.scrollIntoView({ block: 'nearest' }); }
+  // Lời mời còn chờ: chưa duyệt, chưa huỷ, chưa có trong danh sách người ở (hai máy cùng sửa thì lời mời đã duyệt không sống lại)
+  function pending(c) { return ((c && c.roommateInvites) || []).filter(function (v) { return (!v.status || v.status === 'Chờ duyệt') && !all(c).some(function (p) { return p.inviteId === v.id; }); }); }
+  function shownInvites(c) { return ((c && c.roommateInvites) || []).filter(function (v) { return v.status === 'Từ chối' || pending(c).indexOf(v) >= 0; }); }
+  window.roommatePendingInvites = function (room) { return pending(contracts()[room]); };
+  // Số người ở = số người ghi trong hợp đồng + người ở cùng đang ở (không cộng / trừ tay, tránh lệch khi hai máy cùng sửa)
+  function base(c) {
+    if (c.baseOccupants == null) c.baseOccupants = Math.max(1, (Number(c.occupants) || 1) - mates(c).reduce(function (t, p) { return t + count(p); }, 0));
+    return Number(c.baseOccupants) || 1;
+  }
+  function recount(c) { c.occupants = base(c) + mates(c).reduce(function (t, p) { return t + count(p); }, 0); return c.occupants; }
+  function occ(c) { return c ? (c.baseOccupants == null ? Number(c.occupants) || 1 : base(c) + mates(c).reduce(function (t, p) { return t + count(p); }, 0)) : 1; }
+  function capOf(room) { try { return roomCapacity(room) || 0; } catch (e) { return 0; } }
+  // Ở vượt số người tối đa (anh chốt 15/11): chủ nhà đồng ý cho ở thêm nhưng số người tối đa của phòng giữ nguyên;
+  // muốn tăng hẳn thì chủ nhà sửa phòng. Khách đề nghị khi phòng đủ: quản lý phòng xem trước rồi mới lên chủ nhà.
+  function isOwnerNow() { return acct().split('|')[0] === 'owner'; }
+  function hasMgr(room) {
+    try { if (readRoomManagerAssignments()[room]) return true; var m = readPropertyManagerAssignments()[propertyIdForRoom(room)]; return Array.isArray(m) ? m.length > 0 : !!m; } catch (e) { return false; }
+  }
+  function overOf(room, c, v) { return !!(capOf(room) && occ(c) + 1 > capOf(room)); }
+  // '' = quản lý duyệt bình thường · 'mgr' = quản lý xem rồi gửi chủ nhà · 'owner' = chờ chủ nhà đồng ý cho ở thêm
+  function stageOf(room, c, v) { return !overOf(room, c, v) ? '' : (v.staffAdd || v.mgrOk || !hasMgr(room)) ? 'owner' : 'mgr'; }
+  function needOwner(room, c, v) { return stageOf(room, c, v) === 'owner'; }
+  function waitText(room, c, v) { var st = stageOf(room, c, v); return st === 'owner' ? 'Chờ chủ nhà đồng ý cho ở thêm' : st === 'mgr' ? 'Chờ quản lý xem rồi gửi chủ nhà' : 'Chờ quản lý duyệt'; }
+  function roomFull(room, c, extra) { var cap = capOf(room); return cap && occ(c) + pending(c).length + (extra || 0) > cap; }
+  function openProps(room) { try { return proposals(room).filter(function (x) { return !x.closed; }).length; } catch (e) { return 0; } }
+  // Số điện thoại đã có người dùng: nhân viên / người đang ở phòng khác thì chặn; khách cũ đã dọn đi hẳn thì dùng lại tài khoản
+  function phoneOwner(ph, room) {
+    var key = pk(ph, room);
+    if (!key) return null;
+    var cs0 = contracts(), hit = '';
+    Object.keys(cs0).forEach(function (r0) {
+      if (r0 === room || hit || !cs0[r0]) return;
+      if (mates(cs0[r0]).some(function (p) { return p.phoneKey === key; }) || pending(cs0[r0]).some(function (v) { return v.phoneKey === key || (v.phone && pk(v.phone, r0) === key); })) hit = r0;
+    });
+    if (hit) return { block: 'Số này đang ở hoặc đang được mời vào ' + hit + '. Một số điện thoại chỉ ở một phòng.' };
+    var u = (readUsers() || []).find(function (x) { return x.status !== 'Đã xoá' && x.phone && pk(x.phone, x.room || room) === key; });
+    if (!u) return null;
+    if (u.role !== 'tenant') return { block: 'Số này là tài khoản nhân viên, không dùng cho người ở cùng được.' };
+    var cs = contracts(), r = u.room, c = r && cs[r];
+    var leftHere = c && all(c).some(function (p) { return p.leftAt && same(p, u.key, r); });
+    var stillMain = c && !leftHere && !all(c).some(function (p) { return same(p, u.key, r); }) && (signed(c) || ['Chờ người thuê ký', 'Chờ chủ nhà duyệt'].indexOf(c.status) >= 0) && (norm(c.tenantName) === norm(u.name) || (mainUser(r, c) || {}).key === u.key);
+    var stillMate = c && all(c).some(function (p) { return !p.leftAt && same(p, u.key, r); });
+    if (stillMain || stillMate) return { block: 'Số này đang thuê ' + r + '. Một số điện thoại chỉ ở một phòng.' };
+    return { reuse: u };
+  }
 
   // Danh sách người ở trong phòng
   window.openHousehold = function (room) {
-    var c = contracts()[room] || {}, main = mainName(room, c), u = null; try { u = roomTenantUser(room); } catch (e) {}
-    var canEdit = isMain(room) || isStaff(room), me = acct();
-    var rows = '<div class="user-info-row"><span>Khách chính</span><strong>' + esc(main) + (u && u.phone ? ' · ' + esc(u.phone) : '') + '</strong></div>';
+    var c = contracts()[room] || {}, main = mainName(room, c), u = mainUser(room, c), me = acct();
+    var staff = isStaff(room), mainMe = isMain(room), mateMe = isMate(room), meP = mateMe ? find(me, true) : null, dl = delegateOf(c);
+    var rows = '<div class="user-info-row"><span>Khách chính</span><strong>' + esc(main) + (u && u.phone ? ' · ' + esc(showPh(u.phone)) : '') + '</strong></div>';
+    if (base(c) > 1) rows += '<div class="user-info-row"><span>Ghi trong hợp đồng</span><strong>' + base(c) + ' người</strong></div>';
+    if (dl) rows += '<div class="user-info-row"><span>Uỷ quyền tạm</span><strong>' + esc(dl.name) + ' đến ' + esc(vnDate(dl.until)) + '</strong></div>';
     mates(c).forEach(function (p) {
-      rows += '<div class="hh-row"><div><strong>' + esc(p.names) + (p.account === me ? ' (anh/chị)' : '') + '</strong><small>' + esc([p.phone, p.account ? 'có tài khoản' : 'không có tài khoản', 'ở từ ' + day(p.at)].filter(Boolean).join(' · ')) + '</small></div>' +
-        (canEdit ? '<button type="button" class="hh-btn" data-hh-left="' + esc(p.id) + '">Đã dọn đi</button>' : '') + '</div>';
+      var mine = p.account && same(p, me, room), lr = p.leftRequest, wait = p.mainOk && p.mainOk.status === 'Chờ';
+      var tags = [showPh(p.phone), p.noAccount ? 'không cần tài khoản' : p.account && !p.accountReadyAt ? 'chưa đặt mật khẩu' : p.account ? 'có tài khoản' : '', idTag(p), 'ở từ ' + day(p.at)];
+      var btn = '';
+      if (lr) btn = staff ? '<button type="button" class="hh-btn" data-hh-confirm="' + esc(p.id) + '">Xác nhận đã đi</button>' : '<span class="hh-wait">' + (lr.self ? 'Đã báo dọn đi · c' : 'C') + 'hờ quản lý xác nhận</span>';
+      else if (staff || mainMe) btn = '<button type="button" class="hh-btn" data-hh-left="' + esc(p.id) + '">Đã dọn đi</button>';
+      else if (mine) btn = '<button type="button" class="hh-btn" data-hh-self="' + esc(p.id) + '">Tôi đã dọn đi</button>';
+      if (mainMe && wait && !mainAnswered(room, p.id)) btn = '<button type="button" class="hh-btn" data-hh-mainok="' + esc(p.id) + '">Đồng ý?</button>' + btn;
+      if (staff && p.account && !p.noAccount && !p.accountReadyAt) btn += '<button type="button" class="hh-btn" data-hh-account="' + esc(p.id) + '">Tạo tài khoản</button>';
+      if (staff) btn += '<button type="button" class="hh-btn" data-hh-move="' + esc(p.id) + '">Chuyển phòng</button>';
+      rows += '<div class="hh-row"><div><strong>' + esc(p.names) + (mine ? ' (anh/chị)' : '') + '</strong><small>' + esc(tags.filter(Boolean).join(' · ')) + '</small>' +
+        (wait ? '<small class="hh-wait">Chờ khách chính đồng ý · quá 48 giờ coi như đồng ý</small>' : '') +
+        (lr && mine && !lr.self ? '<small class="hh-bad">' + esc(lr.by) + ' báo anh/chị đã dọn đi</small>' : '') + '</div><div class="hh-btns">' + btn +
+        (lr && mine && !lr.self ? '<button type="button" class="hh-btn" data-hh-stay="' + esc(p.id) + '">Tôi vẫn ở</button>' : '') + '</div></div>';
     });
-    (c.roommateInvites || []).forEach(function (v) {
+    if (!mateMe) shownInvites(c).forEach(function (v) {
       var rej = v.status === 'Từ chối';
-      rows += '<div class="hh-row"><div><strong>' + esc(v.name) + '</strong><small' + (rej ? ' class="hh-bad"' : '') + '>' + esc(rej ? 'Quản lý không duyệt: ' + (v.reason || '') : 'Chờ quản lý duyệt · mời ' + day(v.at)) + '</small></div>' +
-        (isMain(room) || isStaff(room) ? '<button type="button" class="hh-btn" data-hh-drop="' + esc(v.id) + '">' + (rej ? 'Bỏ' : 'Huỷ mời') + '</button>' : '') + '</div>';
+      rows += '<div class="hh-row"><div><strong>' + esc(v.name) + '</strong><small' + (rej ? ' class="hh-bad"' : '') + '>' + esc(rej ? (v.ownerNo ? 'Chủ nhà không đồng ý: ' : 'Không duyệt: ') + (v.reason || '') : waitText(room, c, v) + ' · ' + v.by + (v.staffAdd ? ' thêm' : '' + (v.staffAdd ? '' : v.agreedBy ? ' đề nghị, ' + v.agreedBy + ' đồng ý' : ' mời')) + ' ' + day(v.at)) + '</small></div>' +
+        (mainMe || staff ? '<button type="button" class="hh-btn" data-hh-drop="' + esc(v.id) + '">' + (rej ? 'Bỏ' : v.staffAdd ? 'Huỷ' : 'Huỷ mời') + '</button>' : '') +
+        (staff && !rej && (stageOf(room, c, v) === '' || (stageOf(room, c, v) === 'owner') === isOwnerNow()) ? '<button type="button" class="hh-btn" data-hh-review="' + esc(v.id) + '">' + (stageOf(room, c, v) ? 'Xem' : 'Duyệt') + '</button>' : '') + '</div>';
     });
-    var cap = 0; try { cap = roomCapacity(room); } catch (e) {}
-    var full = cap && (Number(c.occupants) || 1) + (c.roommateInvites || []).filter(function (v) { return v.status !== 'Từ chối'; }).length >= cap;
+    // Đề nghị thêm người: người ở cùng thấy đề nghị của mình; khách chính thấy đề nghị đang chờ mình
+    proposals(room).forEach(function (x) {
+      var st = proposalState(room, x);
+      if (!st || !((meP && x.ev.personId === meP.p.id) || (mainMe && !x.closed))) return;
+      var b2 = mainMe && !x.closed ? '<button type="button" class="hh-btn" data-hh-prop="' + esc(x.ev.id) + '">Xem</button>' : meP && !x.closed ? '<button type="button" class="hh-btn" data-hh-propcancel="' + esc(x.ev.id) + '">Rút</button>' : '';
+      rows += '<div class="hh-row"><div><strong>' + esc(x.ev.v.name) + '</strong><small>' + esc((meP && x.ev.personId === meP.p.id ? 'Anh/chị' : x.ev.tenantName) + ' đề nghị · ' + st) + '</small></div><div class="hh-btns">' + b2 + '</div></div>';
+    });
+    // Người thân được ở lâu hơn số đêm cho phép
+    (c.guestExceptions || []).filter(function (g) { return String(g.until || '') >= today(); }).forEach(function (g) {
+      if (!(staff || mainMe || mateMe)) return;
+      rows += '<div class="hh-row"><div><strong>' + esc(g.name) + '</strong><small>Khách được ở đến ' + esc(vnDate(g.until)) + ' · ' + esc(g.reason || '') + '</small></div>' + (staff ? '<button type="button" class="hh-btn" data-hh-exdrop="' + esc(g.id) + '">Bỏ</button>' : '') + '</div>';
+    });
+    var cap = capOf(room), moving = movingOut(room), full = cap && occ(c) + pending(c).length >= cap, ok = signed(c) && cap && !moving;
+    var canAdd = (staff || mainMe) && ok, canProp = mateMe && ok && !(meP && meP.p.leftRequest);
+    var why = !signed(c) ? '' : !cap ? 'Phòng chưa đặt số người tối đa, chưa thêm người được' + (acct().split('|')[0] === 'owner' ? ' (sửa phòng để đặt).' : ', nhờ chủ nhà đặt.') : moving ? 'Khách chính đã báo trả phòng, không thêm người mới.' : '';
+    var swap = staff && mates(c).some(function (p) { return p.account && !p.noAccount && p.accountReadyAt && userByKey(p.account); });
+    var links = [swap ? '<button type="button" class="link-btn" data-hh-swap>Đổi khách chính</button>' : '', staff ? '<button type="button" class="link-btn" data-hh-guest>Cho khách ở lâu</button>' : '',
+      mainMe && mates(c).some(function (p) { return p.account && !p.noAccount; }) ? '<button type="button" class="link-btn" data-hh-deleg>' + (dl ? 'Thôi uỷ quyền' : 'Uỷ quyền tạm') + '</button>' : ''].filter(Boolean).join('');
     var o = document.createElement('div');
     o.className = 'modal-overlay';
     o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Người ở cùng · ' + esc(room) + '</div>' + rows +
-      '<p class="note">Đang ở ' + (Number(c.occupants) || 1) + ' người' + (cap ? ' / tối đa ' + cap : '') + (full ? ', phòng đã đủ người' : '') + '. ' + (canEdit ? 'Người ở cùng có tài khoản riêng: báo hư, xem thông báo, xem và báo thanh toán tiền phòng. Hợp đồng và tiền cọc vẫn đứng tên khách chính.' : 'Khách chính ' + esc(main) + ' thêm hoặc bỏ người ở cùng.') + '</p>' +
-      '<div class="modal-actions"><button type="button" data-hh-close>Đóng</button>' + (canEdit && !full ? '<button type="button" class="save" data-hh-add>Thêm người ở cùng</button>' : '') + '</div></div>';
+      '<p class="note">Đang ở ' + occ(c) + ' người' + (cap ? ' / tối đa ' + cap : '') + (cap && occ(c) > cap ? ', đang ở vượt' : cap && occ(c) >= cap ? ', phòng đã đủ người' : full ? ', tính cả người chờ duyệt là đủ' : '') + '. ' + (pending(c).length ? pending(c).length + ' người đang chờ duyệt. ' : '') + (full && !isOwnerNow() ? 'Thêm người cần chủ nhà đồng ý cho ở thêm. ' : '') + (why ? esc(why) + ' ' : '') +
+      (mateMe ? 'Khách chính ' + esc(main) + ' đứng tên hợp đồng và tiền cọc. Muốn thêm người thì đề nghị, khách chính đồng ý rồi quản lý duyệt.' + (dl && meP && dl.personId === meP.p.id ? ' Anh/chị đang được uỷ quyền xác nhận sửa xong, biên bản đến ' + esc(vnDate(dl.until)) + '.' : '') : 'Người ở cùng có tài khoản riêng: báo hư, báo người ở lại, xem thông báo, xem và báo thanh toán tiền phòng. Hợp đồng và tiền cọc vẫn đứng tên khách chính.') + '</p>' +
+      (links ? '<div class="hh-links">' + links + '</div>' : '') +
+      '<div class="modal-actions"><button type="button" data-hh-close>Đóng</button>' + (canAdd ? '<button type="button" class="save" data-hh-add>Thêm người ở cùng</button>' : canProp ? '<button type="button" class="save" data-hh-add>Đề nghị thêm người</button>' : '') + '</div></div>';
     o.addEventListener('click', function (e) {
-      var t = e.target;
+      var t = e.target, b;
       if (t === o || t.closest('[data-hh-close]')) return o.remove();
-      if (t.closest('[data-hh-add]')) { o.remove(); return openInvite(room); }
-      var l = t.closest('[data-hh-left]'); if (l) { o.remove(); return askLeft(room, l.dataset.hhLeft); }
-      var d = t.closest('[data-hh-drop]'); if (d) { o.remove(); dropInvite(room, d.dataset.hhDrop); return window.openHousehold(room); }
+      if (t.closest('[data-hh-add]')) { o.remove(); return openAdd(room); }
+      if (t.closest('[data-hh-swap]')) { o.remove(); return openSwap(room); }
+      if (t.closest('[data-hh-guest]')) { o.remove(); return openGuestException(room); }
+      if (t.closest('[data-hh-deleg]')) { o.remove(); return dl ? dropDelegate(room) : openDelegate(room); }
+      if ((b = t.closest('[data-hh-mainok]'))) { o.remove(); return openMainOk(room, b.dataset.hhMainok); }
+      if ((b = t.closest('[data-hh-prop]'))) { o.remove(); return reviewProposal(room, b.dataset.hhProp); }
+      if ((b = t.closest('[data-hh-propcancel]'))) { o.remove(); return cancelProposal(room, b.dataset.hhPropcancel); }
+      if ((b = t.closest('[data-hh-exdrop]'))) { o.remove(); dropException(room, b.dataset.hhExdrop); return window.openHousehold(room); }
+      if ((b = t.closest('[data-hh-left]'))) { o.remove(); return askLeft(room, b.dataset.hhLeft); }
+      if ((b = t.closest('[data-hh-self]'))) { o.remove(); return selfLeft(room, b.dataset.hhSelf); }
+      if ((b = t.closest('[data-hh-confirm]'))) { o.remove(); return confirmLeft(room, b.dataset.hhConfirm); }
+      if ((b = t.closest('[data-hh-stay]'))) { o.remove(); return stillHere(room, b.dataset.hhStay); }
+      if ((b = t.closest('[data-hh-account]'))) { o.remove(); var p = all(contracts()[room]).find(function (x) { return x.id === b.dataset.hhAccount; }); return p && makeAccount(room, p); }
+      if ((b = t.closest('[data-hh-move]'))) { o.remove(); return openMove(room, b.dataset.hhMove); }
+      if ((b = t.closest('[data-hh-review]'))) { o.remove(); return reviewInvite(room, b.dataset.hhReview); }
+      if ((b = t.closest('[data-hh-drop]'))) {
+        var did = b.dataset.hhDrop, dv = pending(c).filter(function (x) { return x.id === did; })[0];
+        if (!dv) { o.remove(); dropInvite(room, did); return window.openHousehold(room); }
+        return appConfirm((dv.staffAdd ? 'Huỷ thêm ' : 'Huỷ mời ') + dv.name + '?', '', dv.staffAdd ? 'Huỷ' : 'Huỷ mời', function () { o.remove(); dropInvite(room, did); window.openHousehold(room); }, true);
+      }
     });
     phone(o);
   };
 
-  // Khách chính (hoặc quản lý) nhập người ở cùng
-  function openInvite(room) {
-    var c = contracts()[room] || {}, cap = 0; try { cap = roomCapacity(room); } catch (e) {}
+  // Form thêm: khách chính gửi lời mời; chủ nhà / quản lý phụ trách thêm thẳng
+  function openAdd(room) {
+    var staff = isStaff(room), propose = !staff && isMate(room), cc = ccOf(room), c0 = contracts()[room] || {};
+    var full0 = roomFull(room, c0, 1 + (propose ? openProps(room) : 0));
+    var guards = [mainName(room, c0)].concat(mates(c0).filter(function (p) { return !p.noAccount || (ageOf(p.birth) || 0) >= 18; }).map(function (p) { return p.names; })).filter(Boolean);
     var o = document.createElement('div');
     o.className = 'modal-overlay';
-    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Thêm người ở cùng · ' + esc(room) + '</div>' +
-      '<label>Họ tên</label><input name="name" data-req autocomplete="off"><label>Số điện thoại (để đăng nhập)</label><input name="phone" data-req inputmode="tel" autocomplete="off">' +
-      '<label>Ảnh CCCD / hộ chiếu (bắt buộc)</label><input name="photos" data-req type="file" accept="image/*" multiple>' +
-      '<p class="note">' + esc([isStaff(room) ? 'Lưu xong đặt mật khẩu cho người này.' : 'Quản lý duyệt xong sẽ tạo tài khoản, người này đăng nhập bằng số điện thoại trên.', feeNote(room)].filter(Boolean).join(' ')) + '</p>' +
-      '<p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">' + (isStaff(room) ? 'Lưu' : 'Gửi quản lý duyệt') + '</button></div></form>';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">' + (propose ? 'Đề nghị thêm người · ' : 'Thêm người ở cùng · ') + esc(room) + '</div>' +
+      '<label>Họ tên</label><input name="name" data-req autocomplete="off">' +
+      '<label class="hh-check"><input type="checkbox" name="noAccount"> Không cần tài khoản (trẻ em, người không dùng điện thoại)</label>' +
+      '<div data-hh-phone><label>Số điện thoại (để đăng nhập)</label><div class="phone-cc-row"><select name="phoneCc" aria-label="Mã quốc gia">' + ['84', '855'].map(function (x) { return '<option value="' + x + '"' + (x === cc ? ' selected' : '') + '>' + (x === '84' ? '🇻🇳' : '🇰🇭') + ' +' + x + '</option>'; }).join('') + '</select><input name="phone" type="tel" inputmode="tel" autocomplete="off"></div></div>' +
+      '<div data-hh-kid hidden><label>Ngày sinh</label><input name="birth" type="date" max="' + today() + '">' +
+      '<div data-hh-guard hidden><label>Người giám hộ trong phòng</label><select name="guardian"><option value="">— Chọn —</option>' + guards.map(function (g) { return '<option>' + esc(g) + '</option>'; }).join('') + '</select></div>' +
+      '<div data-hh-why hidden><label>Lý do không cần tài khoản</label><input name="noAccWhy" autocomplete="off" placeholder="Ví dụ: người già không dùng điện thoại"></div></div>' +
+      '<label>Giấy tờ</label><select name="idType"><option value="cccd">CCCD / CMND</option><option value="passport">Hộ chiếu (người nước ngoài)</option><option value="birth">Giấy khai sinh (trẻ em)</option></select>' +
+      '<div data-hh-pass hidden><label>Số hộ chiếu</label><input name="passportNo" autocomplete="off"><label>Loại thị thực</label><input name="visaType" autocomplete="off" placeholder="Ví dụ DN, LĐ, DL"><label>Thị thực hết hạn</label><input name="visaUntil" type="date"></div>' +
+      '<label>Ảnh giấy tờ (bắt buộc mặt trước)</label>' + idSlotsHTML() +
+      '<label class="user-check"><input type="checkbox" name="idConsent"><span>Người này (trẻ em thì người giám hộ) đồng ý cho lưu thông tin và ảnh giấy tờ để khai báo tạm trú và quản lý phòng.</span></label>' +
+      ((staff && !(full0 && !isOwnerNow())) || (!staff && !propose) ? '<p class="note" data-hh-pwnote>' + esc(staff ? 'Lưu xong đặt mật khẩu cho người này.' : (full0 ? 'Chủ nhà đồng ý' : 'Quản lý duyệt') + ' xong sẽ tạo tài khoản, người này đăng nhập bằng số điện thoại trên.') + '</p>' : '') +
+      (full0 ? '<p class="note hh-bad">' + esc('Phòng tối đa ' + capOf(room) + ' người, đã đủ. ' + (isOwnerNow() ? 'Lưu thì phòng ở ' + (occ(c0) + pending(c0).length + 1) + ' người, số người tối đa vẫn là ' + capOf(room) + '. Muốn tăng hẳn thì sửa phòng.' : staff || !hasMgr(room) ? 'Gửi xong cần chủ nhà đồng ý cho ở thêm.' : 'Quản lý xem trước, rồi chủ nhà đồng ý cho ở thêm.')) + '</p>' : '') +
+      '<p class="note">' + esc([staff ? 'Khách chính được báo, có 48 giờ để không đồng ý.' : propose ? 'Khách chính ' + mainName(room, c0) + (full0 ? ' đồng ý, quản lý xem rồi chủ nhà đồng ý cho ở thêm.' : ' đồng ý rồi quản lý duyệt.') : '', feeNote(room)].filter(Boolean).join(' ')) + '</p>' +
+      '<p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">' + (staff ? (full0 && !isOwnerNow() ? 'Gửi chủ nhà' : 'Lưu') : propose ? 'Gửi khách chính' : full0 && !hasMgr(room) ? 'Gửi chủ nhà' : full0 ? 'Gửi quản lý' : 'Gửi quản lý duyệt') + '</button></div></form>';
     phone(o);
-    var form = o.querySelector('form'), photos = [], busy = false;
-    form.photos.addEventListener('change', async function () { busy = true; photos = []; for (var f of Array.prototype.slice.call(form.photos.files, 0, 4)) { try { photos.push(await compressInventoryPhoto(f)); } catch (e) {} } busy = false; });
+    var form = o.querySelector('form'), ids = wireIdSlots(form), box = form.querySelector('[data-hh-phone]'), kid = form.querySelector('[data-hh-kid]'), pass = form.querySelector('[data-hh-pass]');
+    var ageNow = function () { return ageOf(form.birth.value); };
+    var sync = function () {
+      var a = ageNow();
+      box.hidden = form.noAccount.checked; kid.hidden = !form.noAccount.checked;
+      form.querySelector('[data-hh-guard]').hidden = !(form.noAccount.checked && a != null && a < 18);
+      form.querySelector('[data-hh-why]').hidden = !(form.noAccount.checked && a != null && a >= 16);
+      pass.hidden = form.idType.value !== 'passport';
+      var pw = form.querySelector('[data-hh-pwnote]'); if (pw) pw.hidden = form.noAccount.checked;
+    };
+    form.noAccount.addEventListener('change', function () { if (form.noAccount.checked && form.idType.value === 'cccd') form.idType.value = 'birth'; sync(); });
+    form.birth.addEventListener('change', sync); form.idType.addEventListener('change', sync);
     o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var name = form.name.value.trim().replace(/\|/g, ''), ph = form.phone.value.trim(), fresh = contracts()[room] || {};
-      if (busy) return err(form, 'Đang xử lý ảnh, bấm lại sau giây lát.');
+      var name = norm(form.name.value).replace(/\|/g, ''), noAcc = form.noAccount.checked, fresh = contracts()[room] || {};
+      var ph = noAcc ? '' : phoneFromForm(form.phone.value, form.phoneCc.value), a = ageNow(), pass2 = form.idType.value === 'passport';
+      if (ids.pending) return err(form, 'Đang xử lý ảnh, bấm lại sau giây lát.');
       if (name.length < 2) return err(form, 'Nhập họ tên người ở cùng.');
-      var pe = contractPhoneError(ph); if (pe) return err(form, pe);
-      if (!photos.length) return err(form, 'Tải ảnh CCCD / hộ chiếu của người này (bắt buộc).');
-      var pk = phoneKey(ph, '84'), taken = (readUsers() || []).some(function (u) { return u.role === 'tenant' && u.room === room && u.status !== 'Đã xoá' && (u.name === name || (u.phone && phoneKey(u.phone, '84') === pk)); }) ||
-        (fresh.roommateInvites || []).some(function (v) { return v.status !== 'Từ chối' && (v.name === name || phoneKey(v.phone, '84') === pk); });
-      if (taken || name === fresh.tenantName) return err(form, 'Phòng đã có người tên này hoặc số điện thoại này.');
-      var waiting = (fresh.roommateInvites || []).filter(function (v) { return v.status !== 'Từ chối'; }).length;
-      if (cap && (Number(fresh.occupants) || 1) + waiting + 1 > cap) return err(form, 'Phòng chỉ cho tối đa ' + cap + ' người, không được ở vượt.');
-      var v = { id: 'RM' + Date.now().toString(36), name: name, phone: ph, photos: photos, at: now(), by: currentActorName(), status: 'Chờ duyệt' };
+      if (!noAcc) { var pe = contractPhoneError(form.phone.value); if (pe) return err(form, pe); }
+      if (noAcc && !form.birth.value) return err(form, 'Nhập ngày sinh của người không cần tài khoản.');
+      if (noAcc && a < 18 && !form.guardian.value) return err(form, 'Chọn người giám hộ đang ở trong phòng cho người dưới 18 tuổi.');
+      if (noAcc && a >= 16 && norm(form.noAccWhy.value).length < 3) return err(form, 'Ghi lý do người từ 16 tuổi không cần tài khoản.');
+      if (pass2 && (norm(form.passportNo.value).length < 5 || !norm(form.visaType.value) || !form.visaUntil.value)) return err(form, 'Nhập số hộ chiếu, loại thị thực và ngày thị thực hết hạn.');
+      if (pass2 && form.visaUntil.value < today()) return err(form, 'Thị thực đã hết hạn, chưa thêm người này được.');
+      if (!ids.photos[0]) return err(form, 'Tải ảnh mặt trước giấy tờ của người này (bắt buộc).');
+      if (!form.idConsent.checked) return err(form, 'Xác nhận người này đã đồng ý cho lưu thông tin và ảnh giấy tờ.');
+      if (!signed(fresh)) return err(form, 'Hợp đồng phòng này chưa ký, chưa thêm người ở cùng được.');
+      if (!capOf(room)) return err(form, 'Phòng chưa đặt số người tối đa, chưa thêm người được.');
+      if (movingOut(room)) return err(form, 'Khách chính đã báo trả phòng, không thêm người mới.');
+      var key = pk(ph, room);
+      var dupHere = norm(name) === norm(fresh.tenantName) || mates(fresh).some(function (p) { return norm(p.names) === norm(name) || (key && p.phoneKey === key); }) ||
+        pending(fresh).some(function (v) { return norm(v.name) === norm(name) || (key && pk(v.phone, room) === key); }) ||
+        proposals(room).some(function (x) { return !x.closed && (norm(x.ev.v.name) === norm(name) || (key && x.ev.v.phoneKey === key)); });
+      if (dupHere) return err(form, 'Phòng đã có người tên này hoặc số điện thoại này.');
+      var owner = noAcc ? null : phoneOwner(ph, room);
+      if (owner && owner.block) return err(form, owner.block);
+      var over = roomFull(room, fresh, 1 + (propose ? openProps(room) : 0));
+      var v = { id: 'RM' + Date.now().toString(36), name: name, phone: ph, phoneKey: key, noAccount: noAcc, idType: form.idType.value, photos: ids.list(), at: now(), by: currentActorName(), status: 'Chờ duyệt', consentAt: now(), consentBy: currentActorName() };
+      if (pass2) { v.passportNo = norm(form.passportNo.value); v.visaType = norm(form.visaType.value); v.visaUntil = form.visaUntil.value; }
+      if (noAcc) { v.birth = form.birth.value; if (a < 18) v.guardian = form.guardian.value; if (a >= 16) v.noAccountReason = norm(form.noAccWhy.value); }
+      if (over) v.overCap = true;
+      o.remove();
+      if (staff && over && isOwnerNow()) {
+        v.overCapOk = capOf(room);
+        return addPerson(room, v, currentActorName());
+      }
+      if (staff && over) {
+        v.staffAdd = true;
+        fresh.roommateInvites = (fresh.roommateInvites || []).concat([v]);
+        saveHomeContract(room, fresh);
+        appendRoomHistory(room, { kind: 'contract', title: 'Xin cho ở thêm khi phòng đủ (tối đa ' + capOf(room) + '): ' + name, detail: currentActorName() + ' gửi · chờ chủ nhà đồng ý', actor: currentActorName() });
+        toast('Đã gửi chủ nhà'); return refresh();
+      }
+      if (staff) return addPerson(room, v, currentActorName());
+      if (propose) {
+        var me2 = find(acct(), true); if (!me2) return;
+        mateEvent(room, me2.p, 'propose', 'Đề nghị thêm người ở cùng: ' + name, { v: v, status: 'Đã gửi' });
+        toast('Đã gửi ' + (mainName(room, fresh) || 'khách chính')); return refresh();
+      }
       fresh.roommateInvites = (fresh.roommateInvites || []).concat([v]);
       saveHomeContract(room, fresh);
-      appendRoomHistory(room, { kind: 'contract', title: 'Mời người ở cùng: ' + name, detail: ph + ' · ' + currentActorName() + ' gửi · chờ quản lý duyệt', actor: currentActorName() });
-      o.remove();
-      if (isStaff(room)) return approve(room, v.id);
-      if (typeof appToast === 'function') appToast('Đã gửi quản lý duyệt');
+      appendRoomHistory(room, { kind: 'contract', title: 'Mời người ở cùng: ' + name, detail: [ph, currentActorName() + ' gửi · ' + (over ? (hasMgr(room) ? 'phòng đủ, chờ quản lý xem rồi chủ nhà đồng ý' : 'chờ chủ nhà đồng ý cho ở thêm') : 'chờ quản lý duyệt')].filter(Boolean).join(' · '), actor: currentActorName() });
+      toast(over && !hasMgr(room) ? 'Đã gửi chủ nhà' : over ? 'Đã gửi quản lý' : 'Đã gửi quản lý duyệt');
       refresh();
     });
   }
   function dropInvite(room, id) {
     var c = contracts()[room]; if (!c) return;
-    var v = (c.roommateInvites || []).find(function (x) { return x.id === id; });
-    c.roommateInvites = (c.roommateInvites || []).filter(function (x) { return x.id !== id; });
+    var v = (c.roommateInvites || []).find(function (x) { return x.id === id; }); if (!v) return;
+    var was = v.status;
+    v.status = was === 'Từ chối' ? 'Đã bỏ' : 'Đã huỷ'; v.closedAt = now(); v.closedBy = currentActorName(); if (!window.HOME_REAL) v.photos = []; // app thật: máy chủ nhà xoá file trong kho rồi mới bỏ dấu ảnh
     saveHomeContract(room, c);
-    if (v && v.status !== 'Từ chối') appendRoomHistory(room, { kind: 'contract', title: 'Huỷ mời người ở cùng: ' + v.name, detail: currentActorName(), actor: currentActorName() });
+    if (was !== 'Từ chối') appendRoomHistory(room, { kind: 'contract', title: 'Huỷ mời người ở cùng: ' + v.name, detail: currentActorName(), actor: currentActorName() });
     refresh();
   }
 
-  // Quản lý duyệt: thêm vào số người ở (tính phụ phí, nhắc khai báo tạm trú như thêm người ở), rồi đặt mật khẩu
+  // Quản lý xem lời mời rồi duyệt
   function reviewInvite(room, id) {
-    var c = contracts()[room] || {}, v = (c.roommateInvites || []).find(function (x) { return x.id === id; });
-    if (!v) return;
-    var cap = 0; try { cap = roomCapacity(room); } catch (e) {}
-    var n = Number(c.occupants) || 1;
-    appConfirm('Duyệt người ở cùng?', 'Duyệt xong đặt mật khẩu, người này đăng nhập bằng số điện thoại và xem chung tiền phòng với khách chính.', 'Duyệt', function () { approve(room, id); }, false, {
+    var c = contracts()[room] || {}, v = pending(c).find(function (x) { return x.id === id; });
+    if (!v) { if (typeof appToast === 'function') appToast('Lời mời này đã được xử lý'); return; }
+    var cap = capOf(room), n = occ(c), st = stageOf(room, c, v), own = isOwnerNow();
+    if (st === 'owner' && !own) { toast('Phòng tối đa ' + cap + ' người, cần chủ nhà đồng ý cho ở thêm'); return; }
+    if (st === 'mgr' && own) { toast('Chờ quản lý xem rồi gửi chủ nhà'); return; }
+    var fwd = st === 'mgr';
+    appConfirm(fwd ? 'Gửi chủ nhà cho ở thêm?' : st ? 'Cho ở ' + (n + 1) + ' người?' : 'Duyệt người ở cùng?',
+      (fwd ? 'Phòng tối đa ' + cap + ' người, đã đủ. Anh/chị đồng ý thì gửi chủ nhà quyết định cho ở thêm.' : (st ? 'Phòng tối đa ' + cap + ' người. Đồng ý thì phòng ở ' + (n + 1) + ' người, số người tối đa vẫn là ' + cap + '. Muốn tăng hẳn thì sửa phòng. ' : '') + (v.noAccount ? 'Người này không cần tài khoản, chỉ ghi vào danh sách người ở.' : 'Duyệt xong đặt mật khẩu, người này đăng nhập bằng số điện thoại và xem chung tiền phòng với khách chính.')),
+      fwd ? 'Gửi chủ nhà' : st ? 'Đồng ý' : 'Duyệt', function () { if (fwd) forward(room, id); else approve(room, id); }, false, {
       big: v.name, sub: room + ' · khách chính ' + mainName(room, c),
-      rows: [['Số điện thoại', v.phone], ['Khách mời', v.by + ' · ' + v.at], ['Số người ở', n + ' → ' + (n + 1) + ' người' + (cap ? ' / tối đa ' + cap : '')], ['Phụ phí', feeNote(room) || 'Căn này chưa đặt phụ phí thêm người']],
-      photos: v.photos || [], photoLabel: 'CCCD / hộ chiếu'
+      rows: [['Số điện thoại', v.noAccount ? 'Không cần tài khoản' : showPh(v.phone)]].concat(idRows(v), [[v.staffAdd ? 'Người thêm' : 'Người mời', v.by + (v.agreedBy ? ' đề nghị · ' + v.agreedBy + ' đồng ý' : '') + ' · ' + v.at]].concat(v.mgrOk ? [['Quản lý', v.mgrOk.by + ' đồng ý · ' + v.mgrOk.at]] : [], [, ['Số người ở', n + ' → ' + (n + 1) + ' người' + (cap ? ' / tối đa ' + cap : '')], ['Phụ phí', feeNote(room) || 'Căn này chưa đặt phụ phí thêm người']])),
+      photos: v.photos || [], photoLabel: 'Giấy tờ', idSides: true
     });
+  }
+  function forward(room, id) {
+    var c = contracts()[room]; if (!c) return;
+    var v = pending(c).find(function (x) { return x.id === id; });
+    if (!v) { if (typeof appToast === 'function') appToast('Lời mời này đã được xử lý'); return refresh(); }
+    v.mgrOk = { by: currentActorName(), at: now() }; v.overCap = true;
+    saveHomeContract(room, c);
+    appendRoomHistory(room, { kind: 'contract', title: 'Quản lý đồng ý, gửi chủ nhà cho ở thêm: ' + v.name, detail: 'Phòng tối đa ' + capOf(room) + ' · ' + currentActorName(), actor: currentActorName() });
+    toast('Đã gửi chủ nhà'); refresh();
   }
   function approve(room, id) {
     var c = contracts()[room]; if (!c) return;
-    var v = (c.roommateInvites || []).find(function (x) { return x.id === id; }); if (!v) return;
-    var next = Date.now(); try { next = periodBounds(roomLease(room).dueDay, dayStart()).next; } catch (e) {}
-    var key = 'tenant|' + v.name + '|' + room;
-    c.occupants = (Number(c.occupants) || 1) + 1;
-    c.extraPeople = (c.extraPeople || []).concat([{ id: 'XP' + Date.now().toString(36), count: 1, names: v.name, phone: v.phone, photos: v.photos || [], at: now(), by: v.by, approvedBy: currentActorName(), fromPeriod: monthKeyOf(next), residenceDeclaredAt: '', account: key }]);
-    c.roommateInvites = c.roommateInvites.filter(function (x) { return x.id !== id; });
+    var v = pending(c).find(function (x) { return x.id === id; });
+    if (!v) { if (typeof appToast === 'function') appToast('Lời mời này đã được xử lý'); return refresh(); }
+    if (!signed(c)) { if (typeof appToast === 'function') appToast('Hợp đồng chưa ký, chưa duyệt được'); return; }
+    if (movingOut(room)) { toast('Khách chính đã báo trả phòng, không duyệt thêm người'); return; }
+    if (!capOf(room)) { toast('Phòng chưa đặt số người tối đa'); return; }
+    var st = stageOf(room, c, v);
+    if (st === 'mgr') return isOwnerNow() ? toast('Chờ quản lý xem rồi gửi chủ nhà') : forward(room, id);
+    if (st && !isOwnerNow()) { toast('Phòng tối đa ' + capOf(room) + ' người, cần chủ nhà đồng ý cho ở thêm'); return; }
+    var owner = v.noAccount ? null : phoneOwner(v.phone, room);
+    if (owner && owner.block) { if (typeof appToast === 'function') appToast(owner.block); return; }
+    var photos = v.photos || [], copy = Object.assign({}, v, { photos: photos }, st ? { overCapOk: capOf(room) } : {});
+    v.status = 'Đã duyệt'; v.reviewedBy = currentActorName(); v.reviewedAt = now(); v.photos = [];
     saveHomeContract(room, c);
-    var users = readUsers(), u = users.find(function (x) { return x.key === key; });
-    if (!u) { u = { key: key, id: 'U-' + Date.now().toString(36).slice(-6), role: 'tenant', name: v.name, fullName: v.name, room: room, phone: v.phone, status: 'Đang hoạt động', history: [] }; users.push(u); }
-    else { u.status = 'Đang hoạt động'; u.phone = v.phone; }
-    logUserChange(u, 'Tạo tài khoản người ở cùng phòng ' + room);
-    saveUsers(users);
-    appendRoomHistory(room, { kind: 'contract', title: 'Đã duyệt người ở cùng: ' + v.name, detail: 'Nay ' + c.occupants + ' người · ' + currentActorName() + ' duyệt', actor: currentActorName() });
-    try { ensureRentCharges(); } catch (e) {}
-    try { refreshUserAccounts(); } catch (e) {}
-    refresh();
-    setPassword(room, key, v);
+    addPerson(room, copy, currentActorName(), v.staffAdd ? '' : id);
   }
-  function setPassword(room, key, v) {
+  // Ghi người ở cùng vào hợp đồng (từ lời mời đã duyệt hoặc chủ nhà / quản lý thêm thẳng), rồi tạo tài khoản nếu cần
+  function addPerson(room, v, by, inviteId) {
+    var c = contracts()[room]; if (!c) return;
+    if (inviteId && all(c).some(function (p) { return p.inviteId === inviteId; })) return refresh();
+    var cur = Date.now(); try { cur = periodBounds(roomLease(room).dueDay, dayStart()).start; } catch (e) {}
+    base(c);
+    var photos = v.photos || [];
+    var reuse = v.noAccount ? null : (phoneOwner(v.phone, room) || {}).reuse;
+    var key = v.noAccount ? '' : (reuse && reuse.room === room ? reuse.key : 'tenant|' + v.name + '|' + room);
+    var p = { id: 'XP' + Date.now().toString(36), count: 1, names: v.name, phone: v.phone || '', phoneKey: v.phoneKey || (v.phone ? pk(v.phone, room) : ''), noAccount: !!v.noAccount, idType: v.idType || 'cccd', photos: photos, at: now(), by: v.by || by, approvedBy: by, fromDate: dstart(), fromPeriod: monthKeyOf(cur), residenceDeclaredAt: '', account: key, inviteId: inviteId || '' };
+    EXTRA_FIELDS.forEach(function (f) { if (v[f]) p[f] = v[f]; });
+    if (!inviteId && mainUser(room, c)) p.mainOk = { status: 'Chờ', at: now(), by: (v.staffAdd && v.by) || by };
+    if (reuse) { p.uuid = reuse.uuid || ''; p.reused = true; }
+    all(c).forEach(function (o) { if (o.toDate && p.fromDate && o.toDate > p.fromDate && ((p.phoneKey && o.phoneKey === p.phoneKey) || norm(o.names) === norm(p.names))) o.toDate = Math.max(o.fromDate || 0, p.fromDate); });
+    c.extraPeople = all(c).concat([p]);
+    recount(c);
+    saveHomeContract(room, c);
+    appendRoomHistory(room, { kind: 'contract', title: (inviteId ? 'Đã duyệt người ở cùng: ' : 'Thêm người ở cùng: ') + v.name, detail: 'Nay ' + c.occupants + ' người' + (v.overCapOk ? ' (tối đa ' + v.overCapOk + ', chủ nhà đồng ý cho ở thêm)' : '') + ' · phụ lục hợp đồng: số người ở ' + c.occupants + ' · ' + (v.staffAdd && v.by && v.by !== by ? v.by + ' thêm, ' + by + ' đồng ý' : by + (inviteId ? ' duyệt' : ' thêm')), actor: by });
+    try { ensureRentCharges(); } catch (e) {}
+    refresh();
+    if (!v.noAccount) makeAccount(room, p);
+  }
+  // Tạo tài khoản: máy chủ tạo xong mới báo "Đã tạo"; lỗi thì giữ "chưa tạo xong", bấm Tạo tài khoản để làm lại
+  function makeAccount(room, p) {
+    var reused = p.reused && p.uuid;
     var o = document.createElement('div');
     o.className = 'modal-overlay';
-    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Mật khẩu cho ' + esc(v.name) + '</div><p class="note" style="margin-top:0">' + esc(v.name) + ' đăng nhập bằng số ' + esc(v.phone) + '.</p><label>Mật khẩu</label><div class="pw-row"><input name="pw" minlength="6" maxlength="40" value="' + randomPassword() + '" autocomplete="off"><button type="button" class="pw-gen" data-random>Tạo số khác</button></div><p class="user-error" hidden></p><div class="modal-actions"><button class="save">Tạo tài khoản</button></div></form>';
+    if (reused) {
+      o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Dùng lại tài khoản cũ</div><div class="pw-box">' + esc(p.names) + ' đã có tài khoản với số <b>' + esc(showPh(p.phone)) + '</b>. Đăng nhập bằng mật khẩu cũ, quên thì bấm "Quên mật khẩu?" ở màn đăng nhập.</div><p class="user-error" hidden></p><div class="modal-actions"><button type="button" class="save" data-ok>Gắn vào ' + esc(room) + '</button></div></div>';
+      phone(o);
+      o.querySelector('[data-ok]').addEventListener('click', function () {
+        var btn = this; btn.disabled = true;
+        link(room, p, p.uuid, function (e2) { if (e2) { btn.disabled = false; return err(o, e2); } ready(room, p.id, p.uuid); o.remove(); if (typeof appToast === 'function') appToast('Đã gắn ' + p.names + ' vào ' + room); });
+      });
+      return;
+    }
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Mật khẩu cho ' + esc(p.names) + '</div><p class="note" style="margin-top:0">' + esc(p.names) + ' đăng nhập bằng số ' + esc(showPh(p.phone)) + '.</p><label>Mật khẩu</label><div class="pw-row"><input name="pw" minlength="6" maxlength="40" value="' + randomPassword() + '" autocomplete="off"><button type="button" class="pw-gen" data-random>Tạo số khác</button></div><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-later>Để sau</button><button class="save">Tạo tài khoản</button></div></form>';
     phone(o);
     var form = o.querySelector('form');
     o.querySelector('[data-random]').addEventListener('click', function () { form.pw.value = randomPassword(); });
+    o.querySelector('[data-later]').addEventListener('click', function () { o.remove(); if (typeof appToast === 'function') appToast('Chưa tạo tài khoản. Mở Người ở cùng → Tạo tài khoản để làm sau.'); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var pw = String(form.pw.value || '').trim();
+      var pw = String(form.pw.value || '').trim(), btn = form.querySelector('.save');
       if (pw.length < 6) return err(form, 'Mật khẩu cần ít nhất 6 ký tự.');
-      setUserPassword(key, pw, currentActorName(), false);
-      form.innerHTML = '<div class="modal-head">Đã tạo tài khoản</div><div class="pw-box">Báo cho ' + esc(v.name) + ' đăng nhập bằng số <b>' + esc(v.phone) + '</b><br>Mật khẩu <strong>' + esc(pw) + '</strong></div><p class="note">Vào app chọn tiếng, nhập số điện thoại và mật khẩu này. Đăng nhập xong nên tự đổi mật khẩu.</p><div class="modal-actions"><button type="button" class="save" data-close>Xong</button></div>';
-      form.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+      btn.disabled = true; btn.textContent = 'Đang tạo…';
+      var done = function () {
+        form.innerHTML = '<div class="modal-head">Đã tạo tài khoản</div><div class="pw-box">Báo cho ' + esc(p.names) + ' đăng nhập bằng số <b>' + esc(showPh(p.phone)) + '</b><br>Mật khẩu <strong>' + esc(pw) + '</strong></div><p class="note">Vào app chọn tiếng, nhập số điện thoại và mật khẩu này. Đăng nhập xong nên tự đổi mật khẩu.</p><div class="modal-actions"><button type="button" class="save" data-close>Xong</button></div>';
+        form.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+      };
+      var fail = function (m) { btn.disabled = false; btn.textContent = 'Tạo tài khoản'; err(form, 'Chưa tạo được tài khoản: ' + m + '. Sửa rồi bấm lại.'); };
+      localUser(room, p);
+      if (!window.HOME_REAL || !window.HOME_DB || !window.HOME_DB.saveAccount) {
+        try { setUserPassword(p.account, pw, currentActorName(), false); } catch (x) {}
+        ready(room, p.id, ''); return done();
+      }
+      window.HOME_DB.saveAccount({ phoneKey: p.phoneKey, name: p.names, role: 'khach', password: pw, onlyNew: true, room: room, mate: true }).then(function (r) {
+        if (!r || r.error) return fail((r && r.error) || 'lỗi không rõ');
+        (r.da_gan ? function (a, b, c, cb) { cb(''); } : link)(room, p, r.id, function (e2) {
+          if (e2) return fail(e2);
+          ready(room, p.id, r.id);
+          if (r.da_co) { form.innerHTML = '<div class="modal-head">Dùng lại tài khoản cũ</div><div class="pw-box">' + esc(p.names) + ' đã có tài khoản số <b>' + esc(showPh(p.phone)) + '</b>, đăng nhập bằng mật khẩu cũ.</div><div class="modal-actions"><button type="button" class="save" data-close>Xong</button></div>'; form.querySelector('[data-close]').addEventListener('click', function () { o.remove(); }); return; }
+          done();
+        });
+      });
     });
   }
+  function localUser(room, p) {
+    var users = readUsers(), u = users.find(function (x) { return x.key === p.account; });
+    if (!u) { u = { key: p.account, id: 'U-' + Date.now().toString(36).slice(-6), role: 'tenant', name: p.names, fullName: p.names, room: room, phone: p.phone, status: 'Đang hoạt động', history: [] }; users.push(u); }
+    else { u.status = 'Đang hoạt động'; u.phone = p.phone; u.room = room; }
+    if (p.uuid) u.uuid = p.uuid;
+    try { logUserChange(u, 'Tài khoản người ở cùng phòng ' + room); } catch (e) {}
+    saveUsers(users);
+    try { refreshUserAccounts(); } catch (e) {}
+  }
+  function link(room, p, id, cb) {
+    if (!window.HOME_REAL || !window.HOME_DB || !window.HOME_DB.linkTenantRoom) return cb('');
+    window.HOME_DB.linkTenantRoom(id, room, { mate: true }).then(function (l) { cb(l && l.error ? l.error : ''); });
+  }
+  function ready(room, pid, uuid) {
+    var c = contracts()[room], x = c && all(c).find(function (i) { return i.id === pid; }); if (!x) return;
+    x.accountReadyAt = now(); if (uuid) x.uuid = uuid;
+    saveHomeContract(room, c);
+    var users = readUsers(), u = users.find(function (y) { return y.key === x.account; });
+    if (!u) localUser(room, x); else if (uuid && !u.uuid) { u.uuid = uuid; saveUsers(users); }
+    refresh();
+  }
   function rejectInvite(room, id) {
-    var c = contracts()[room] || {}, v = (c.roommateInvites || []).find(function (x) { return x.id === id; }); if (!v) return;
+    var c = contracts()[room] || {}, v = pending(c).find(function (x) { return x.id === id; }); if (!v) return;
+    var ownerAsk = needOwner(room, c, v) && isOwnerNow(), noLabel = ownerAsk ? 'Không đồng ý' : 'Không duyệt';
     var o = document.createElement('div');
     o.className = 'modal-overlay';
-    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Không duyệt ' + esc(v.name) + '?</div><label>Lý do (khách chính thấy)</label><textarea name="reason" data-req rows="3"></textarea><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save danger">Không duyệt</button></div></form>';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">' + (ownerAsk ? 'Không đồng ý cho ' + esc(v.name) + ' ở thêm?' : 'Không duyệt ' + esc(v.name) + '?') + '</div><label>Lý do (khách chính và quản lý thấy)</label><textarea name="reason" data-req rows="3"></textarea><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save danger">' + noLabel + '</button></div></form>';
     phone(o);
     var form = o.querySelector('form');
     o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var reason = form.reason.value.trim(); if (reason.length < 3) return err(form, 'Ghi lý do để khách chính biết.');
-      var f = contracts()[room], x = f && (f.roommateInvites || []).find(function (i) { return i.id === id; }); if (!x) return o.remove();
-      x.status = 'Từ chối'; x.reason = reason; x.reviewedBy = currentActorName(); x.reviewedAt = now();
+      var f = contracts()[room], x = f && pending(f).find(function (i) { return i.id === id; }); if (!x) return o.remove();
+      x.status = 'Từ chối'; if (ownerAsk) x.ownerNo = true; x.reason = reason; x.reviewedBy = currentActorName(); x.reviewedAt = now(); x.photos = [];
       saveHomeContract(room, f);
-      appendRoomHistory(room, { kind: 'contract', title: 'Không duyệt người ở cùng: ' + x.name, detail: reason + ' · ' + currentActorName(), actor: currentActorName() });
+      appendRoomHistory(room, { kind: 'contract', title: (ownerAsk ? 'Không đồng ý cho ở thêm: ' : 'Không duyệt người ở cùng: ') + x.name, detail: reason + ' · ' + currentActorName(), actor: currentActorName() });
       o.remove(); refresh();
     });
   }
 
-  // Dọn đi: bớt số người, thôi phụ phí từ kỳ sau, khoá tài khoản (máy quản lý / chủ nhà gỡ khỏi phòng trên máy chủ)
+  // Dọn đi
+  function leave(room, id, by, why) {
+    var f = contracts()[room], x = f && mates(f).find(function (i) { return i.id === id; }); if (!x) return;
+    var next = Date.now(); try { next = periodBounds(roomLease(room).dueDay, dayStart()).next; } catch (e) {}
+    base(f);
+    x.leftAt = now(); x.leftBy = by; x.toPeriod = monthKeyOf(next); delete x.leftRequest;
+    // Khách chính không đồng ý người quản lý thêm thẳng: không tính phụ phí người này; còn lại tính tới ngày dọn đi, ít nhất 7 ngày
+    if (x.fromDate) x.toDate = x.mainOk && x.mainOk.status === 'Không đồng ý' ? x.fromDate : Math.max(dstart(), x.fromDate + 7 * DAYMS);
+    if (f.delegate && f.delegate.personId === x.id) delete f.delegate;
+    recount(f);
+    saveHomeContract(room, f);
+    try { ensureRentCharges(); } catch (e) {}
+    appendRoomHistory(room, { kind: 'contract', title: 'Người ở cùng dọn đi: ' + x.names, detail: 'Nay ' + f.occupants + ' người · ' + why, actor: by });
+    unlinkLeft(); refresh();
+  }
+  function rowsFor(room, c, p) {
+    var n = occ(c), fee = feeNote(room), nextP = ''; try { nextP = monthKeyOf(periodBounds(roomLease(room).dueDay, dayStart()).next).split('-').reverse().join('/'); } catch (e) {}
+    return [['Số người ở', n + ' → ' + Math.max(1, n - count(p)) + ' người']].concat(fee && nextP ? [['Phụ phí', 'Tính đến ngày xác nhận dọn đi (ít nhất 7 ngày ở)']] : []);
+  }
+  // Quản lý / chủ nhà ghi: có hiệu lực ngay. Khách chính ghi: chờ quản lý xác nhận (tránh ghi khống để thôi phụ phí)
   function askLeft(room, id) {
     var c = contracts()[room] || {}, p = mates(c).find(function (x) { return x.id === id; }); if (!p) return;
-    appConfirm('Ghi ' + p.names + ' đã dọn đi?', 'Người này không vào app xem phòng được nữa. Lịch sử vẫn giữ. Hợp đồng và tiền cọc không đổi.', 'Đã dọn đi', function () {
+    if (isStaff(room)) return appConfirm('Ghi ' + p.names + ' đã dọn đi?', 'Người này không vào app xem phòng được nữa. Lịch sử vẫn giữ. Hợp đồng và tiền cọc không đổi.', 'Đã dọn đi', function () { leave(room, id, currentActorName(), currentActorName() + ' ghi'); }, true, { big: p.names, sub: room, rows: rowsFor(room, c, p) });
+    appConfirm('Báo ' + p.names + ' đã dọn đi?', 'Quản lý xác nhận xong mới bớt người và thôi phụ phí. ' + p.names + ' sẽ thấy báo này.', 'Gửi quản lý', function () {
       var f = contracts()[room], x = f && mates(f).find(function (i) { return i.id === id; }); if (!x) return;
-      var next = Date.now(); try { next = periodBounds(roomLease(room).dueDay, dayStart()).next; } catch (e) {}
-      x.leftAt = now(); x.leftBy = currentActorName(); x.toPeriod = monthKeyOf(next);
-      f.occupants = Math.max(1, (Number(f.occupants) || 1) - (Number(x.count) || 1));
+      x.leftRequest = { by: currentActorName(), at: now() };
       saveHomeContract(room, f);
-      try { var list = readRentCharges().filter(function (ch) { return !(ch.room === room && ch.extra === 'person' && ch.status === 'Chưa thu' && String(ch.period) >= 'person-' + x.toPeriod); }); saveRentCharges(list); ensureRentCharges(); } catch (e) {}
-      appendRoomHistory(room, { kind: 'contract', title: 'Người ở cùng dọn đi: ' + x.names, detail: 'Nay ' + f.occupants + ' người · ' + currentActorName() + ' ghi', actor: currentActorName() });
-      unlinkLeft(); refresh();
-    }, true, { big: p.names, sub: room, rows: [['Số người ở', (Number(c.occupants) || 1) + ' → ' + Math.max(1, (Number(c.occupants) || 1) - 1) + ' người']].concat(feeNote(room) ? [['Phụ phí', 'Thôi thu từ kỳ ' + (function () { try { return monthKeyOf(periodBounds(roomLease(room).dueDay, dayStart()).next).split('-').reverse().join('/'); } catch (e) { return 'sau'; } })()]] : []) });
+      appendRoomHistory(room, { kind: 'contract', title: 'Báo người ở cùng dọn đi: ' + x.names, detail: currentActorName() + ' báo · chờ quản lý xác nhận', actor: currentActorName() });
+      refresh();
+    }, true, { big: p.names, sub: room, rows: rowsFor(room, c, p) });
   }
+  function selfLeft(room, id) {
+    var c = contracts()[room] || {}, p = mates(c).find(function (x) { return x.id === id; }); if (!p) return;
+    appConfirm('Anh/chị đã dọn khỏi ' + room + '?', 'Bấm xong anh/chị không vào xem phòng này được nữa. Quản lý xác nhận rồi mới thôi phụ phí; quá 3 ngày chưa xác nhận thì tự có hiệu lực.', 'Tôi đã dọn đi', function () {
+      // Người ở cùng không sửa hợp đồng được: ghi việc vào sự kiện phòng, máy quản lý ghi vào hợp đồng; tự rời phòng trên máy chủ ngay
+      mateEvent(room, p, 'left', 'Người ở cùng báo đã dọn đi: ' + p.names);
+      if (!window.HOME_REAL) { setMate(room, id, function (x) { x.leftRequest = { by: p.names, at: now(), self: true }; }); appendRoomHistory(room, { kind: 'contract', title: 'Người ở cùng báo đã dọn đi: ' + p.names, detail: 'Chờ quản lý xác nhận', actor: p.names }); refresh(); }
+      else if (window.HOME_DB && window.HOME_DB.client) window.HOME_DB.client.rpc('khach_roi_phong', { p_ma_phong: room }).then(function () { window.__tenantLeft = true; refresh(); });
+    }, true, { big: p.names, sub: room, rows: rowsFor(room, c, p) });
+  }
+  function confirmLeft(room, id) {
+    var c = contracts()[room] || {}, p = mates(c).find(function (x) { return x.id === id; }); if (!p || !p.leftRequest) return;
+    appConfirm('Xác nhận ' + p.names + ' đã dọn đi?', (p.leftRequest.self ? 'Tự báo' : p.leftRequest.by + ' báo') + ' lúc ' + p.leftRequest.at + '.', 'Xác nhận', function () { leave(room, id, currentActorName(), (p.leftRequest.self ? 'tự báo' : p.leftRequest.by + ' báo') + ' · ' + currentActorName() + ' xác nhận'); }, true, { big: p.names, sub: room, rows: rowsFor(room, c, p) });
+  }
+  function stillHere(room, id) {
+    var f = contracts()[room], x = f && mates(f).find(function (i) { return i.id === id; }); if (!x || !x.leftRequest) return;
+    if (isMate(room) && window.HOME_REAL) { mateEvent(room, x, 'stay', x.names + ' báo vẫn đang ở'); x.stayAt = now(); if (typeof appToast === 'function') appToast('Đã báo quản lý anh/chị vẫn ở'); return refresh(); }
+    var by = x.leftRequest.by; delete x.leftRequest;
+    saveHomeContract(room, f);
+    appendRoomHistory(room, { kind: 'contract', title: x.names + ' báo vẫn đang ở', detail: 'Không đúng với báo dọn đi của ' + by, actor: x.names });
+    refresh();
+  }
+  // Chuyển người ở cùng sang phòng khác trong căn: dọn khỏi phòng cũ, thêm vào phòng mới, giữ tài khoản
+  function openMove(room, id) {
+    var c = contracts()[room] || {}, p = mates(c).find(function (x) { return x.id === id; }); if (!p) return;
+    var h = house(room), cs = contracts();
+    var rooms = Object.keys(cs).filter(function (r) { return r !== room && cs[r] && signed(cs[r]) && house(r) === h && isStaff(r) && capOf(r) && !movingOut(r); });
+    if (!rooms.length) { if (typeof appToast === 'function') appToast('Căn này chưa có phòng nào khác đang thuê mà anh/chị phụ trách'); return; }
+    var o = document.createElement('div');
+    o.className = 'modal-overlay';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Chuyển ' + esc(p.names) + '</div><label>Sang phòng</label><select name="to">' + rooms.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select><p class="note">Giữ tài khoản và lịch sử. Phụ phí tính theo số ngày ở mỗi phòng. Khách chính phòng mới được báo, có 48 giờ để không đồng ý.</p><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">Chuyển</button></div></form>';
+    phone(o);
+    var form = o.querySelector('form');
+    o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var to = form.to.value, t = contracts()[to];
+      if (roomFull(to, t, 1)) return err(form, to + ' đã đủ ' + capOf(to) + ' người.');
+      o.remove();
+      leave(room, id, currentActorName(), 'chuyển sang ' + to);
+      var v = { name: p.names, phone: p.phone, phoneKey: p.phoneKey, noAccount: p.noAccount, idType: p.idType, photos: p.photos, by: currentActorName() };
+      var t2 = contracts()[to]; base(t2);
+      var cur = Date.now(); try { cur = periodBounds(roomLease(to).dueDay, dayStart()).start; } catch (x) {}
+      var q = { id: 'XP' + Date.now().toString(36), count: 1, names: v.name, phone: v.phone, phoneKey: v.phoneKey, noAccount: v.noAccount, idType: v.idType, photos: v.photos || [], at: now(), by: v.by, approvedBy: v.by, fromDate: dstart(), fromPeriod: monthKeyOf(cur), residenceDeclaredAt: '', account: p.noAccount ? '' : 'tenant|' + p.names + '|' + to, uuid: p.uuid || '', movedFrom: room };
+      EXTRA_FIELDS.forEach(function (f2) { if (p[f2]) q[f2] = p[f2]; });
+      if (mainUser(to, t2)) q.mainOk = { status: 'Chờ', at: now(), by: currentActorName() };
+      t2.extraPeople = all(t2).concat([q]); recount(t2); saveHomeContract(to, t2);
+      appendRoomHistory(to, { kind: 'contract', title: 'Người ở cùng chuyển đến: ' + p.names, detail: 'Từ ' + room + ' · nay ' + t2.occupants + ' người · ' + currentActorName(), actor: currentActorName() });
+      if (p.uuid && !p.noAccount) link(to, q, p.uuid, function (e2) { if (!e2) ready(to, q.id, p.uuid); else if (typeof appToast === 'function') appToast('Chưa gắn được vào ' + to + ': ' + e2); });
+      else if (!p.noAccount) { localUser(to, q); ready(to, q.id, ''); }
+      try { ensureRentCharges(); } catch (x) {}
+      refresh();
+    });
+  }
+  // Việc người ở cùng báo (dọn đi, vẫn ở, muốn thuê tiếp, đã đọc điều khoản) đi qua sự kiện phòng — khách ghi được —
+  // rồi máy chủ nhà / quản lý phụ trách ghi vào hợp đồng.
+  function hhEvent(room, action, personId, who, title, extra) {
+    var all = {}; try { all = JSON.parse(localStorage.getItem('homeTenantEvents') || '{}'); } catch (e) {}
+    var ev = Object.assign({ id: String(Date.now()) + Math.random().toString(16).slice(2), kind: 'household', action: action, personId: personId, tenantName: who, title: title, date: new Date().toLocaleDateString('vi-VN'), at: now(), status: 'Chờ xử lý' }, extra || {});
+    all[room] = [ev].concat(Array.isArray(all[room]) ? all[room] : []);
+    localStorage.setItem('homeTenantEvents', JSON.stringify(all));
+    return ev;
+  }
+  function mateEvent(room, p, action, title, extra) { return hhEvent(room, action, p.id, p.names, title, extra); }
+  window.householdMateEvent = function (room, action, title) { var r = window.roommateEntry(acct()); if (r && r.room === room) return mateEvent(room, r.p, action, title); };
+  // Máy chủ đóng dấu người ghi (uid) vào từng việc: máy quản lý chỉ làm theo việc do đúng người đó gửi
+  function fromOk(ev, uuid) { return !window.HOME_REAL || (!!uuid && ev.uid === uuid); }
+  var MAIN_ACTS = { mainOk: 1, mainNo: 1 }, RECORD_ACTS = { propose: 1, proposeNo: 1, proposeCancel: 1 };
+  function applyMateEvents() {
+    if (['owner', 'manager'].indexOf(acct().split('|')[0]) < 0) return;
+    var evs = {}; try { evs = readTenantEventsSafe(); } catch (e) { return; }
+    var done = [];
+    Object.keys(evs).forEach(function (room) {
+      if (!isStaff(room)) return;
+      (evs[room] || []).forEach(function (ev) {
+        if (!ev || ev.kind !== 'household' || ev.status !== 'Chờ xử lý' || RECORD_ACTS[ev.action]) return;
+        var c = contracts()[room], p = c && all(c).find(function (x) { return x.id === ev.personId; });
+        var mu = MAIN_ACTS[ev.action] ? mainUser(room, c) : null;
+        if (p && !p.leftAt && fromOk(ev, MAIN_ACTS[ev.action] ? mu && mu.uuid : p.uuid)) {
+          if (ev.action === 'left' && !p.leftRequest) { setMate(room, p.id, function (x) { x.leftRequest = { by: p.names, at: ev.at, self: true }; }); appendRoomHistory(room, { id: ev.id + '-h', kind: 'contract', title: 'Người ở cùng báo đã dọn đi: ' + p.names, detail: 'Chờ quản lý xác nhận', actor: p.names }); }
+          if (ev.action === 'stay' && p.leftRequest && !p.leftRequest.self) { setMate(room, p.id, function (x) { delete x.leftRequest; }); appendRoomHistory(room, { id: ev.id + '-h', kind: 'contract', title: p.names + ' báo vẫn đang ở', detail: 'Không đúng với báo dọn đi của ' + p.leftRequest.by, actor: p.names }); }
+          if (ev.action === 'wantStay') setMate(room, p.id, function (x) { x.wantStayAt = ev.at; });
+          if (ev.action === 'rules') setMate(room, p.id, function (x) { x.rulesReadAt = ev.at; });
+          if (MAIN_ACTS[ev.action]) mainAnswer(room, p.id, ev.action === 'mainOk', ev.reason, ev.at, ev.tenantName, ev.id + '-h');
+        }
+        done.push([room, ev.id]);
+      });
+    });
+    housekeeping();
+    if (!done.length) return;
+    var fresh = readTenantEventsSafe(); // leave() vừa ghi thêm lịch sử: đọc lại rồi mới đánh dấu
+    done.forEach(function (d) { var e = (fresh[d[0]] || []).find(function (x) { return x.id === d[1]; }); if (e) { e.status = 'Đã xử lý'; e.doneAt = now(); } });
+    localStorage.setItem('homeTenantEvents', JSON.stringify(fresh)); refresh();
+  }
+  // Khách chính trả lời người ở cùng do quản lý / chủ nhà thêm thẳng
+  function mainAnswered(room, pid) { return eventPending(room, pid, 'mainOk') || eventPending(room, pid, 'mainNo'); }
+  function mainAnswer(room, id, ok, reason, at, who, hid) {
+    var c = contracts()[room], p = c && mates(c).find(function (x) { return x.id === id; }); if (!p || !p.mainOk || p.mainOk.status !== 'Chờ') return;
+    who = who || mainName(room, c);
+    var by0 = p.mainOk.by;
+    if (overdue(p, at)) { autoAgree(room, p); return; }
+    setMate(room, id, function (x) { x.mainOk = { status: ok ? 'Đồng ý' : 'Không đồng ý', at: at || now(), by: who, reason: reason || '', addedBy: by0 }; });
+    if (ok) { appendRoomHistory(room, Object.assign(hid ? { id: hid } : {}, { kind: 'contract', title: 'Khách chính đồng ý người ở cùng: ' + p.names, detail: who, actor: who })); refresh(); }
+    else leave(room, id, who, 'khách chính không đồng ý' + (reason ? ': ' + reason : ''));
+  }
+  // Quá 48 giờ kể từ lúc thêm: coi như khách chính đồng ý (trả lời muộn cũng không tính)
+  function overdue(p, at) { var t0 = p && p.mainOk && parseViTime(p.mainOk.at); return !!t0 && (parseViTime(at) || Date.now()) - t0 > 2 * DAYMS; }
+  function autoAgree(room, p) {
+    var m0 = p.mainOk;
+    setMate(room, p.id, function (x) { x.mainOk = { status: 'Tự đồng ý', at: now(), addedBy: m0.by }; });
+    appendRoomHistory(room, { id: 'auto-' + p.id, kind: 'contract', title: 'Người ở cùng ' + p.names + ': khách chính không trả lời 48 giờ, coi như đồng ý', actor: 'App' });
+    refresh();
+  }
+  // Việc tự chạy trên máy chủ nhà / quản lý phụ trách
+  function housekeeping() {
+    var cs = contracts();
+    Object.keys(cs).forEach(function (room) {
+      var c = cs[room]; if (!c || !isStaff(room)) return;
+      mates(c).forEach(function (p) {
+        var lr = p.leftRequest, t0 = lr && lr.self && parseViTime(lr.at);
+        if (t0 && Date.now() - t0 > 3 * DAYMS) return leave(room, p.id, 'App', 'tự báo ' + day(lr.at) + ' · quá 3 ngày chưa xác nhận');
+        if (p.mainOk && p.mainOk.status === 'Chờ' && overdue(p) && !mainAnswered(room, p.id)) autoAgree(room, p);
+      });
+      if (movingOut(room) && pending(contracts()[room]).length) {
+        var f = contracts()[room];
+        pending(f).forEach(function (v) { v.status = 'Đã huỷ'; v.closedAt = now(); v.closedBy = 'App · khách chính báo trả phòng'; if (!window.HOME_REAL) v.photos = []; });
+        saveHomeContract(room, f);
+        appendRoomHistory(room, { kind: 'contract', title: 'Tự huỷ lời mời người ở cùng', detail: 'Khách chính báo trả phòng', actor: 'App' });
+      }
+    });
+  }
+  window.applyHouseholdEvents = applyMateEvents;
+  setTimeout(applyMateEvents, 3000); setInterval(applyMateEvents, 30000);
+  // Máy chủ nhà / quản lý: gỡ người đã dọn đi khỏi phòng trên máy chủ (dự phòng khi lúc ghi chưa gỡ được)
   var unlinking = {};
   function unlinkLeft() {
     if (!window.HOME_REAL || !window.HOME_DB || !window.HOME_DB.unlinkTenantRoom || ['owner', 'manager'].indexOf(acct().split('|')[0]) < 0) return;
-    var all = contracts();
-    Object.keys(all).forEach(function (room) {
-      ((all[room] && all[room].extraPeople) || []).forEach(function (p) {
-        if (!p.account || !p.leftAt || p.unlinkedAt || unlinking[p.id] || !isStaff(room)) return;
-        var u = (readUsers() || []).find(function (x) { return x.key === p.account && x.uuid; }); if (!u) return;
-        unlinking[p.id] = 1;
-        window.HOME_DB.unlinkTenantRoom(u.uuid, room).then(function (r) {
-          delete unlinking[p.id]; if (r.error) return;
-          var f = contracts()[room], x = f && (f.extraPeople || []).find(function (i) { return i.id === p.id; }); if (!x) return;
-          x.unlinkedAt = now(); saveHomeContract(room, f);
-        });
-      });
+    var cs = contracts(), recs = {}; try { recs = readCheckouts(); } catch (e) {}
+    function idOf(room, p) { var u = (readUsers() || []).find(function (x) { return x.uuid && (x.uuid === p.uuid || same(p, x.key, room)); }); return p.uuid || (u && u.uuid); }
+    // Người đó đang ở lại phòng này (quay lại, nhận chuyển hợp đồng, thành khách chính): không gỡ
+    function stillIn(room, id) { var c = cs[room]; if (!c) return false; var mu = mainUser(room, c); return (mu && mu.uuid === id) || mates(c).some(function (q) { return q.uuid === id; }); }
+    function go(room, p, mark) {
+      if (!p.account || !p.leftAt || p.unlinkedAt || unlinking[p.id] || !isStaff(room)) return;
+      var id = idOf(room, p); if (!id) return;
+      if (stillIn(room, id)) return mark();
+      unlinking[p.id] = 1;
+      window.HOME_DB.unlinkTenantRoom(id, room).then(function (r) { delete unlinking[p.id]; if (!r.error) mark(); });
+    }
+    Object.keys(cs).forEach(function (room) {
+      all(cs[room]).forEach(function (p) { go(room, p, function () { var f = contracts()[room], x = f && all(f).find(function (i) { return i.id === p.id; }); if (x && !x.unlinkedAt) { x.unlinkedAt = now(); saveHomeContract(room, f); } }); });
+    });
+    Object.keys(recs).forEach(function (room) {
+      var rec = recs[room]; if (!rec || !rec.contract) return;
+      (rec.contract.extraPeople || []).forEach(function (p) { go(room, p, function () { var a2 = readCheckouts(), r2 = a2[room], x = r2 && r2.contract && (r2.contract.extraPeople || []).find(function (i) { return i.id === p.id; }); if (x && !x.unlinkedAt) { x.unlinkedAt = now(); localStorage.setItem('homeCheckouts', JSON.stringify(a2)); } }); });
     });
   }
   setTimeout(unlinkLeft, 4000); setInterval(unlinkLeft, 60000);
   function checkLeft() {
-    var me = null; try { me = JSON.parse(localStorage.getItem('homeServerUser') || 'null'); } catch (e) {}
+    var me = serverMe();
     if (!window.HOME_REAL || !me || me.vai_tro !== 'khach') return;
     if (!window.HOME_DB) return window.addEventListener('home-db-ready', checkLeft, { once: true });
     window.HOME_DB.client.from('khach_phong').select('dang_o').eq('khach_id', me.id).then(function (r) {
@@ -1135,26 +1761,533 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
   }
   checkLeft(); setInterval(checkLeft, 60000);
 
-  // Việc cần xử lý: quản lý duyệt lời mời
-  var base = collectWorkItems;
+  // ---- Đề nghị thêm người (người ở cùng → khách chính đồng ý → quản lý duyệt), anh chốt 15/11 ----
+  function proposals(room) {
+    var evs = []; try { evs = readTenantEventsSafe()[room] || []; } catch (e) {}
+    var c = contracts()[room] || {}, closed = {};
+    evs.forEach(function (e) { if (e && e.kind === 'household' && (e.action === 'proposeNo' || e.action === 'proposeCancel') && e.ref) closed[e.ref] = e; });
+    (c.roommateInvites || []).forEach(function (v) { if (v.proposalId) closed[v.proposalId] = { action: 'invited', invite: v }; });
+    var mo = movingOut(room);
+    return evs.filter(function (e) { return e && e.kind === 'household' && e.action === 'propose' && e.v; }).map(function (e) { return { ev: e, closed: closed[e.id] || (mo ? { action: 'proposeCancel', auto: true } : null) }; });
+  }
+  function recent(at) { var t = parseViTime(at) || 0; return !!t && Date.now() - t < 7 * DAYMS; }
+  function proposalState(room, x) {
+    var k = x.closed, c = contracts()[room] || {};
+    if (!k) return 'chờ ' + (mainName(room, c) || 'khách chính') + ' đồng ý';
+    if (k.action === 'proposeCancel') return '';
+    if (k.action === 'proposeNo') return recent(k.at) ? 'khách chính không đồng ý' + (k.reason ? ': ' + k.reason : '') : '';
+    var v = k.invite;
+    var pv = pending(c).filter(function (y) { return y.id === v.id; })[0];
+    if (pv) { var st2 = stageOf(room, c, pv); return 'khách chính đồng ý · ' + (st2 === 'owner' ? 'chờ chủ nhà đồng ý cho ở thêm' : st2 === 'mgr' ? 'chờ quản lý xem rồi gửi chủ nhà' : 'chờ quản lý duyệt'); }
+    if (v.status === 'Từ chối') return recent(v.reviewedAt) ? (v.ownerNo ? 'chủ nhà không đồng ý' : 'quản lý không duyệt') + (v.reason ? ': ' + v.reason : '') : '';
+    if (v.status === 'Đã huỷ') return recent(v.closedAt) ? 'đã huỷ' : '';
+    return '';
+  }
+  function infoRows(list) { return list.map(function (r) { return '<div class="user-info-row"><span>' + esc(r[0]) + '</span><strong>' + esc(r[1]) + '</strong></div>'; }).join(''); }
+  var ID_NAMES = { cccd: 'CCCD / CMND', passport: 'Hộ chiếu', birth: 'Giấy khai sinh' };
+  function reviewProposal(room, evId) {
+    var x = proposals(room).filter(function (y) { return y.ev.id === evId; })[0];
+    if (!x || x.closed) return toast('Đề nghị này đã được xử lý');
+    var v = x.ev.v, c = contracts()[room] || {}, n = occ(c), cap = capOf(room);
+    var o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">' + esc(x.ev.tenantName) + ' đề nghị thêm người</div>' +
+      infoRows([['Họ tên', v.name], ['Số điện thoại', v.noAccount ? 'Không cần tài khoản' : showPh(v.phone)], ['Giấy tờ', ID_NAMES[v.idType] || '']].concat(idRows(v), [['Số người ở', n + ' → ' + (n + 1) + ' người' + (cap ? ' / tối đa ' + cap : '')], ['Phụ phí', feeNote(room) || 'Căn này chưa đặt phụ phí thêm người']])) +
+      '<p class="note">' + (roomFull(room, c, 1) ? 'Phòng đã đủ người (tính cả người đang chờ duyệt). Anh/chị đồng ý thì quản lý xem rồi chủ nhà đồng ý cho ở thêm.' : 'Anh/chị đồng ý thì gửi quản lý duyệt.') + '</p><div data-no hidden><label>Lý do không đồng ý</label><textarea name="reason" rows="2"></textarea></div><p class="user-error" hidden></p>' +
+      '<div class="modal-actions"><button type="button" data-no-btn>Không đồng ý</button><button type="button" class="save" data-ok>Đồng ý</button></div></div>';
+    phone(o);
+    o.addEventListener('click', function (e) {
+      if (e.target === o) return o.remove();
+      if (e.target.closest('[data-no-btn]')) {
+        var nb = o.querySelector('[data-no]'); if (nb.hidden) { nb.hidden = false; o.querySelector('[data-no-btn]').textContent = 'Gửi không đồng ý'; return; }
+        var r = norm(o.querySelector('[name=reason]').value); if (r.length < 3) return err(o, 'Ghi lý do để ' + x.ev.tenantName + ' biết.');
+        hhEvent(room, 'proposeNo', x.ev.personId, currentActorName(), 'Không đồng ý thêm ' + v.name, { ref: x.ev.id, reason: r, status: 'Đã gửi' });
+        o.remove(); toast('Đã báo ' + x.ev.tenantName); return refresh();
+      }
+      if (!e.target.closest('[data-ok]')) return;
+      var fresh = contracts()[room] || {};
+      if (!signed(fresh)) return err(o, 'Hợp đồng chưa ký.');
+      if (!capOf(room)) return err(o, 'Phòng chưa đặt số người tối đa, nhờ chủ nhà đặt.');
+      if (movingOut(room)) return err(o, 'Anh/chị đã báo trả phòng, không thêm người mới.');
+      var over = roomFull(room, fresh, 1), need = 0;
+      var ow = v.noAccount ? null : phoneOwner(v.phone, room); if (ow && ow.block) return err(o, ow.block);
+      var inv = Object.assign({}, v, { id: 'RM' + Date.now().toString(36), at: now(), by: x.ev.tenantName, agreedBy: currentActorName(), proposalId: x.ev.id, status: 'Chờ duyệt' }, over ? { overCap: true } : {});
+      fresh.roommateInvites = (fresh.roommateInvites || []).concat([inv]);
+      saveHomeContract(room, fresh);
+      appendRoomHistory(room, { kind: 'contract', title: 'Mời người ở cùng: ' + v.name, detail: x.ev.tenantName + ' đề nghị · ' + currentActorName() + ' đồng ý · ' + (over ? 'phòng đủ, chờ quản lý xem rồi chủ nhà đồng ý' : 'chờ quản lý duyệt'), actor: currentActorName() });
+      o.remove(); toast(over && !hasMgr(room) ? 'Đã gửi chủ nhà' : 'Đã gửi quản lý'); refresh();
+    });
+  }
+  function cancelProposal(room, evId) {
+    var m = meMate(), x = proposals(room).filter(function (y) { return y.ev.id === evId; })[0]; if (!m || !x || x.closed) return;
+    appConfirm('Rút đề nghị thêm ' + x.ev.v.name + '?', '', 'Rút đề nghị', function () { hhEvent(room, 'proposeCancel', m.p.id, m.p.names, 'Rút đề nghị thêm ' + x.ev.v.name, { ref: evId, status: 'Đã gửi' }); refresh(); }, true);
+  }
+  // Quản lý / chủ nhà thêm thẳng: khách chính đồng ý hoặc không trong 48 giờ
+  function openMainOk(room, id) {
+    var c = contracts()[room] || {}, p = mates(c).find(function (x) { return x.id === id; });
+    if (!p || !p.mainOk || p.mainOk.status !== 'Chờ' || mainAnswered(room, id)) return toast('Việc này đã được xử lý');
+    if (overdue(p)) return toast('Đã quá 48 giờ, coi như anh/chị đã đồng ý');
+    var n = occ(c), cap = capOf(room);
+    var o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Người ở cùng mới · ' + esc(room) + '</div>' +
+      infoRows([['Họ tên', p.names], ['Số điện thoại', p.noAccount ? 'Không cần tài khoản' : showPh(p.phone)], ['Giấy tờ', ID_NAMES[p.idType] || '']].concat(idRows(p), [['Người thêm', (p.mainOk.by || '') + ' · ' + day(p.mainOk.at)], ['Số người ở', n + ' người' + (cap ? ' / tối đa ' + cap : '')], ['Phụ phí', feeNote(room) || 'Căn này chưa đặt phụ phí thêm người']])) +
+      '<p class="note">Không đồng ý thì người này được ghi dọn đi. Quá 48 giờ không trả lời thì coi như đồng ý.</p><div data-no hidden><label>Lý do không đồng ý</label><textarea name="reason" rows="2"></textarea></div><p class="user-error" hidden></p>' +
+      '<div class="modal-actions"><button type="button" data-no-btn>Không đồng ý</button><button type="button" class="save" data-ok>Đồng ý</button></div></div>';
+    phone(o);
+    o.addEventListener('click', function (e) {
+      if (e.target === o) return o.remove();
+      if (e.target.closest('[data-no-btn]')) {
+        var nb = o.querySelector('[data-no]'); if (nb.hidden) { nb.hidden = false; o.querySelector('[data-no-btn]').textContent = 'Gửi không đồng ý'; return; }
+        var r = norm(o.querySelector('[name=reason]').value); if (r.length < 3) return err(o, 'Ghi lý do để quản lý biết.');
+        o.remove(); return tenantAnswerMain(room, id, false, r);
+      }
+      if (e.target.closest('[data-ok]')) { o.remove(); tenantAnswerMain(room, id, true, ''); }
+    });
+  }
+  function tenantAnswerMain(room, id, ok, reason) {
+    var c = contracts()[room], p = c && mates(c).find(function (x) { return x.id === id; }); if (!p) return;
+    if (window.HOME_REAL) hhEvent(room, ok ? 'mainOk' : 'mainNo', p.id, currentActorName(), (ok ? 'Đồng ý người ở cùng: ' : 'Không đồng ý người ở cùng: ') + p.names, { reason: reason || '' });
+    else mainAnswer(room, id, ok, reason, now(), currentActorName());
+    toast(ok ? 'Đã đồng ý' : 'Đã báo quản lý'); refresh();
+  }
+  // Đổi khách chính giữa kỳ: hợp đồng, tiền cọc giữ nguyên, chuyển sang tên người ở cùng; khách chính cũ thành người ở cùng
+  function openSwap(room) {
+    var c = contracts()[room] || {}, old = mainUser(room, c);
+    var list = mates(c).filter(function (p) { return p.account && !p.noAccount && p.accountReadyAt && userByKey(p.account); });
+    if (!list.length || !old) return toast('Chưa có người ở cùng nào đã đặt mật khẩu');
+    var cur = mainName(room, c), o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Đổi khách chính · ' + esc(room) + '</div>' + infoRows([['Khách chính hiện tại', cur]]) +
+      '<label>Người nhận làm khách chính</label><select name="to">' + list.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.names) + '</option>'; }).join('') + '</select>' +
+      '<label class="hh-check"><input type="checkbox" name="agree"> ' + esc(cur) + ' và người nhận đã đồng ý</label>' +
+      '<p class="note">Hợp đồng, tiền thuê, thời hạn, tiền cọc giữ nguyên, chuyển sang tên người nhận. ' + esc(cur) + ' thành người ở cùng, vẫn ở phòng. Khoản chưa thu và tiền dư chuyển sang người nhận.</p>' +
+      '<p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">Đổi</button></div></form>';
+    phone(o);
+    var form = o.querySelector('form');
+    o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!form.agree.checked) return err(form, 'Hai bên phải đồng ý trước khi đổi.');
+      if (movingOut(room)) return err(form, 'Phòng đang làm trả phòng, chưa đổi được.');
+      var f = contracts()[room], p = f && mates(f).find(function (x) { return x.id === form.to.value; }), o0 = mainUser(room, f); if (!p || !o0) return o.remove();
+      var by = currentActorName(), oldName = mainName(room, f), newKey = p.account;
+      base(f);
+      var st0 = (String(f.term || '').match(/\d{1,2}\/\d{1,2}\/\d{4}/) || [])[0];
+      var entry = { id: 'XP' + Date.now().toString(36), count: 1, names: oldName || o0.name, phone: o0.phone || '', phoneKey: o0.phone ? pk(o0.phone, room) : '', noAccount: false, idType: 'cccd', photos: [], at: st0 ? '00:00:00 ' + st0 : now(), by: by, approvedBy: by,
+        fromDate: p.fromDate || dstart(), fromPeriod: p.fromPeriod || '', account: o0.key, uuid: o0.uuid || '', accountReadyAt: now(), rulesReadAt: now(), residenceDeclaredAt: f.residenceDeclaredAt || '', wasMain: true };
+      f.extraPeople = all(f).filter(function (x) { return x.id !== p.id; }).concat([entry]);
+      f.mainHistory = (f.mainHistory || []).concat([{ from: oldName, to: p.names, at: now(), by: by, personId: p.id }]);
+      f.tenantName = p.names; if (p.phone) f.tenantPhone = p.phone;
+      delete f.delegate;
+      recount(f); saveHomeContract(room, f);
+      // Mọi khoản thu của phòng chuyển sang người nhận (không tạo trùng tiền thuê kỳ này); tiền dư cũng chuyển
+      try { var ch = readRentCharges(); ch.forEach(function (x) { if (x.room === room && x.tenantKey === o0.key) { x.tenantKey = newKey; x.tenantName = p.names; } }); saveRentCharges(ch); } catch (x) {}
+      try { var cr = readTenantCredits(), left = Number(cr[o0.key]) || 0; if (left) { delete cr[o0.key]; localStorage.setItem('homeTenantCredits', JSON.stringify(cr)); addTenantCredit(newKey, left); } } catch (x) {}
+      try { ensureRentCharges(); } catch (x) {}
+      appendRoomHistory(room, { kind: 'contract', title: 'Đổi khách chính: ' + oldName + ' → ' + p.names, detail: 'Hợp đồng, tiền cọc giữ nguyên, chuyển sang tên ' + p.names + ' · ' + oldName + ' thành người ở cùng · ' + by, actor: by });
+      o.remove();
+      if (window.HOME_REAL && window.HOME_DB && window.HOME_DB.linkTenantRoom && p.uuid) {
+        window.HOME_DB.linkTenantRoom(p.uuid, room).then(function (r) {
+          if (r && r.error) return toast('Chưa cập nhật máy chủ: ' + r.error);
+          if (o0.uuid) window.HOME_DB.linkTenantRoom(o0.uuid, room, { mate: true });
+        });
+      }
+      toast('Đã đổi khách chính'); refresh();
+    });
+  }
+  // Khách chính uỷ quyền tạm cho một người ở cùng (đi vắng lâu): xác nhận sửa xong, biên bản; không ký, gia hạn, trả phòng
+  function openDelegate(room) {
+    var c = contracts()[room] || {}, list = mates(c).filter(function (p) { return p.account && !p.noAccount && (!window.HOME_REAL || p.uuid); });
+    if (!list.length) return toast('Chưa có người ở cùng nào có tài khoản');
+    var o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Uỷ quyền tạm · ' + esc(room) + '</div><label>Người được uỷ quyền</label><select name="to">' + list.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.names) + '</option>'; }).join('') + '</select>' +
+      '<label>Trong</label><select name="days">' + [7, 14, 30, 60, 90].map(function (d) { return '<option value="' + d + '"' + (d === 30 ? ' selected' : '') + '>' + d + ' ngày</option>'; }).join('') + '</select>' +
+      '<p class="note">Người được uỷ quyền xác nhận sửa xong, biên bản bàn giao, biên bản vi phạm thay anh/chị. Không ký, gia hạn, trả phòng hay nhận hoàn cọc.</p><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">Uỷ quyền</button></div></form>';
+    phone(o);
+    var form = o.querySelector('form');
+    o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = contracts()[room], p = f && mates(f).find(function (x) { return x.id === form.to.value; }); if (!p) return o.remove();
+      var until = iso(Date.now() + Number(form.days.value) * DAYMS);
+      f.delegate = { personId: p.id, uuid: p.uuid || '', name: p.names, until: until, by: currentActorName(), at: now() };
+      saveHomeContract(room, f);
+      appendRoomHistory(room, { kind: 'contract', title: 'Uỷ quyền tạm cho ' + p.names, detail: 'Đến ' + vnDate(until) + ' · ' + currentActorName(), actor: currentActorName() });
+      o.remove(); toast('Đã uỷ quyền cho ' + p.names); refresh();
+    });
+  }
+  function dropDelegate(room) {
+    var c = contracts()[room]; if (!c || !c.delegate) return;
+    appConfirm('Thôi uỷ quyền cho ' + c.delegate.name + '?', '', 'Thôi uỷ quyền', function () {
+      var f = contracts()[room]; if (!f || !f.delegate) return; var n = f.delegate.name; delete f.delegate; saveHomeContract(room, f);
+      appendRoomHistory(room, { kind: 'contract', title: 'Huỷ uỷ quyền tạm cho ' + n, detail: currentActorName(), actor: currentActorName() }); refresh();
+    }, true);
+  }
+  // Người thân ở lâu hơn số đêm cho phép: quản lý / chủ nhà cho ở đến một ngày
+  function openGuestException(room) {
+    var lim = 14; try { lim = Number(houseSettings(house(room)).guestNightLimit) || 14; } catch (e) {}
+    var o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<form class="modal-sheet"><div class="modal-head">Cho khách ở lâu · ' + esc(room) + '</div><label>Họ tên khách</label><input name="name" data-req autocomplete="off">' +
+      '<label>Lý do</label><select name="rel"><option>Người thân (vợ / chồng / con / bố mẹ)</option><option>Chăm người bệnh</option><option>Khác</option></select><label>Ghi chú</label><input name="note" autocomplete="off">' +
+      '<label>Ở đến ngày</label><input name="until" type="date" min="' + today() + '" max="' + iso(Date.now() + 90 * DAYMS) + '" value="' + iso(Date.now() + 30 * DAYMS) + '">' +
+      '<p class="note">Bình thường khách ở quá ' + lim + ' đêm trong 30 ngày thì phải đăng ký người ở cùng. Khách này báo ở lại không bị chặn tới ngày trên (tối đa 90 ngày).</p><p class="user-error" hidden></p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button class="save">Lưu</button></div></form>';
+    phone(o);
+    var form = o.querySelector('form');
+    o.querySelector('[data-close]').addEventListener('click', function () { o.remove(); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var name = norm(form.name.value), until = form.until.value, note = norm(form.note.value);
+      if (name.length < 2) return err(form, 'Nhập họ tên khách.');
+      if (!until || until < today() || until > iso(Date.now() + 90 * DAYMS)) return err(form, 'Chọn ngày trong 90 ngày tới.');
+      if (form.rel.value === 'Khác' && note.length < 3) return err(form, 'Ghi rõ lý do.');
+      var f = contracts()[room]; if (!f) return o.remove();
+      f.guestExceptions = (f.guestExceptions || []).filter(function (g) { return norm(g.name).toLowerCase() !== name.toLowerCase(); }).concat([{ id: 'GX' + Date.now().toString(36), name: name, reason: form.rel.value + (note ? ': ' + note : ''), until: until, by: currentActorName(), at: now() }]);
+      saveHomeContract(room, f);
+      appendRoomHistory(room, { kind: 'room', title: 'Cho khách ở lâu: ' + name, detail: 'Đến ' + vnDate(until) + ' · ' + form.rel.value + (note ? ': ' + note : '') + ' · ' + currentActorName(), actor: currentActorName() });
+      o.remove(); toast('Đã lưu'); refresh();
+    });
+  }
+  function dropException(room, id) {
+    var f = contracts()[room], g = f && (f.guestExceptions || []).find(function (x) { return x.id === id; }); if (!g) return;
+    f.guestExceptions = f.guestExceptions.filter(function (x) { return x.id !== id; }); saveHomeContract(room, f);
+    appendRoomHistory(room, { kind: 'room', title: 'Bỏ cho khách ở lâu: ' + g.name, detail: currentActorName(), actor: currentActorName() }); refresh();
+  }
+  // Việc trên trang chủ khách: khách chính đồng ý người được thêm thẳng / đề nghị; người ở cùng theo dõi đề nghị của mình
+  window.householdTenantTodo = function (room) {
+    var out = [], c = contracts()[room]; if (!c) return out;
+    if (isMain(room)) {
+      mates(c).forEach(function (p) {
+        if (p.mainOk && p.mainOk.status === 'Chờ' && !mainAnswered(room, p.id) && !overdue(p)) out.push({ title: (p.mainOk.by || 'Quản lý') + ' thêm ' + p.names + ' ở cùng phòng', sub: 'Đồng ý hoặc không trong 48 giờ, quá hạn coi như đồng ý', btn: 'Xem', run: function () { openMainOk(room, p.id); }, urgent: true });
+      });
+      mates(c).forEach(function (p) { if (p.leftRequest && !p.leftRequest.self) out.push({ title: 'Đã báo ' + p.names + ' dọn đi', sub: 'Chờ quản lý xác nhận', btn: '', run: null }); });
+      pending(c).forEach(function (v) {
+        if (v.staffAdd) return;
+        out.push({ title: 'Mời ' + v.name + ' ở cùng', sub: waitText(room, c, v), btn: 'Xem', run: function () { window.openHousehold(room); } });
+      });
+      (c.roommateInvites || []).forEach(function (v) {
+        if (v.status !== 'Từ chối' || v.staffAdd) return;
+        out.push({ title: (v.ownerNo ? 'Chủ nhà không đồng ý ' : 'Quản lý không duyệt ') + v.name, sub: (v.reason || '') + ' · Xem → Bỏ để ẩn', btn: 'Xem', run: function () { window.openHousehold(room); } });
+      });
+      proposals(room).forEach(function (x) { if (!x.closed) out.push({ title: x.ev.tenantName + ' đề nghị thêm ' + x.ev.v.name + ' ở cùng', sub: roomFull(room, c, 1) ? 'Phòng đủ người: anh/chị đồng ý thì quản lý xem rồi chủ nhà đồng ý cho ở thêm' : 'Anh/chị đồng ý thì gửi quản lý duyệt', btn: 'Xem', run: function () { reviewProposal(room, x.ev.id); }, urgent: true }); });
+    }
+    var m = meMate();
+    if (m && m.room === room && (eventPending(room, m.p.id, 'left') || (m.p.leftRequest && m.p.leftRequest.self)))
+      out.push({ title: 'Đã báo dọn đi', sub: 'Chờ quản lý xác nhận · quá 3 ngày tự xác nhận', btn: '', run: null });
+    if (m && m.room === room) proposals(room).forEach(function (x) {
+      if (x.ev.personId !== m.p.id) return;
+      var st = proposalState(room, x); if (st) out.push({ title: 'Đề nghị thêm ' + x.ev.v.name, sub: st.charAt(0).toUpperCase() + st.slice(1), btn: 'Xem', run: function () { window.openHousehold(room); } });
+    });
+    return out;
+  };
+
+  // Việc cần xử lý: quản lý duyệt lời mời, xác nhận người dọn đi, tạo tài khoản còn dở
+  // ---- Quyền người ở cùng trên màn khách (anh chốt 14/11) ----
+  // Người ở cùng: xem / báo thanh toán, báo hư, góp ý, đọc thông báo. Không ký, gia hạn, trả phòng, xác nhận biên bản.
+  function meMate() { return window.roommateEntry(acct()); }
+  window.isDelegateFor = function (room) { var m = meMate(); if (!m || m.room !== room) return false; var d = delegateOf(m.c); return !!d && d.personId === m.p.id; };
+  function myName() { return norm(acct().split('|')[1]); }
+  function toast(t) { if (typeof appToast === 'function') appToast(t); }
+  function evOf(room, id) { try { return ((readTenantEventsSafe()[room]) || []).find(function (e) { return String(e.id) === String(id); }); } catch (e) { return null; } }
+  function mine(ev) { return !!ev && norm(ev.tenantName) === myName(); }
+  function eventPending(room, pid, action) { try { return ((readTenantEventsSafe()[room]) || []).some(function (e) { return e && e.kind === 'household' && e.action === action && e.personId === pid && e.status === 'Chờ xử lý'; }); } catch (e) { return false; } }
+  function setMate(room, pid, fn) { var f = contracts()[room], x = f && all(f).find(function (i) { return i.id === pid; }); if (!x) return; fn(x); saveHomeContract(room, f); }
+  // Xác nhận sửa xong / chưa xong (và đánh giá sau đó): chỉ người báo hoặc khách chính
+  ['confirmRepairByTenant', 'rejectRepairByTenant'].forEach(function (fn) {
+    if (typeof window[fn] !== 'function') return;
+    var b = window[fn];
+    window[fn] = function (room, id) {
+      if (meMate() && !mine(evOf(room, id)) && !window.isDelegateFor(room)) return toast('Chỉ người báo hoặc khách chính xác nhận việc này');
+      return b.apply(this, arguments);
+    };
+  });
+  if (typeof window.confirmRoomHandover === 'function') {
+    var baseHandover = window.confirmRoomHandover;
+    window.confirmRoomHandover = function () { var mm = meMate(); if (mm && !window.isDelegateFor(mm.room)) return toast('Biên bản do khách chính xác nhận'); return baseHandover.apply(this, arguments); };
+  }
+  if (typeof window.renderTenantConfirmations === 'function') {
+    var baseConfirms = window.renderTenantConfirmations;
+    window.renderTenantConfirmations = function () {
+      var r = baseConfirms.apply(this, arguments), m = meMate(), box = document.getElementById('tenantConfirmBox');
+      if (m && box && !window.isDelegateFor(m.room)) {
+        box.querySelectorAll('.confirm-item').forEach(function (it) { var ok = it.querySelector('[data-repair-ok]'); if (ok && !mine(evOf(m.room, ok.dataset.repairOk))) it.remove(); });
+        box.querySelectorAll('.confirm-card').forEach(function (card) {
+          var n = card.querySelectorAll('.confirm-item').length, cnt = card.querySelector('.tenant-asset-count');
+          if (card.querySelector('[data-repair-ok]') || cnt) { if (!n && !card.querySelector('[data-moveout-cancel]')) card.remove(); else if (cnt) cnt.textContent = n; }
+        });
+      }
+      return r;
+    };
+  }
+  // Tab Hợp đồng: người ở cùng chỉ xem thời hạn, tiền thuê và điều khoản (không thấy tiền cọc, không ký)
+  function trimLease() {
+    var m = meMate(), money = document.getElementById('tenantMoneyTerms'), nm = document.getElementById('tenantContractName');
+    var lab = money && money.previousElementSibling, note = document.getElementById('hhLeaseNote'), btn = money && money.closest('.tenant-card') && money.closest('.tenant-card').querySelector('button.outline');
+    if (lab && !lab.dataset.orig) lab.dataset.orig = lab.textContent;
+    if (btn && !btn.dataset.orig) btn.dataset.orig = btn.textContent;
+    if (!m) { if (lab && lab.dataset.orig) lab.textContent = lab.dataset.orig; if (btn && btn.dataset.orig) btn.textContent = btn.dataset.orig; if (note) note.remove(); return; }
+    var main = mainName(m.room, m.c);
+    if (money) money.innerText = String(money.innerText).split(' / ')[0] + '/tháng';
+    if (lab) lab.textContent = 'Tiền thuê';
+    if (nm && main) nm.innerText = main + ' (khách chính)';
+    if (btn) btn.textContent = 'Xem điều khoản';
+    if (!note && btn) { btn.insertAdjacentHTML('beforebegin', '<p class="note" id="hhLeaseNote"></p>'); note = document.getElementById('hhLeaseNote'); }
+    if (note) note.textContent = 'Hợp đồng và tiền cọc đứng tên khách chính ' + main + '. Anh/chị ở cùng phòng, xem được thời hạn và điều khoản.';
+  }
+  if (typeof window.showContract === 'function') {
+    var baseShow = window.showContract;
+    window.showContract = function () {
+      var r = baseShow.apply(this, arguments), m = meMate();
+      if (!m) return r;
+      var sheets = document.querySelectorAll('.modal-overlay .modal-sheet'), sh = sheets[sheets.length - 1]; if (!sh) return r;
+      var head = sh.querySelector('.modal-head'); if (head) head.textContent = 'Điều khoản thuê · ' + m.room;
+      sh.querySelectorAll('.tenant-kv').forEach(function (kv) { if (/^(Tiền cọc|Trạng thái)/.test(kv.textContent.trim())) kv.remove(); });
+      sh.querySelectorAll('.contract-terms-body p').forEach(function (p) { if (/cọc|deposit|ប្រាក់កក់/i.test(p.textContent)) p.remove(); });
+      var no = 0; sh.querySelectorAll('.contract-terms-body p').forEach(function (p) { if (/^\d+\.\s/.test(p.textContent)) { no++; p.textContent = p.textContent.replace(/^\d+\./, no + '.'); } });
+      sh.querySelectorAll('.tenant-tabs-note').forEach(function (n) { if (/xác nhận|ký|hiệu lực/i.test(n.textContent) && !n.querySelector('strong')) n.remove(); });
+      ['#signatureName', '#contractAgree'].forEach(function (q) { var el = sh.querySelector(q); if (!el) return; var l = el.closest('label'); if (l) l.remove(); else { if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') el.previousElementSibling.remove(); el.remove(); } });
+      sh.querySelectorAll('.modal-actions .save').forEach(function (b) { b.remove(); });
+      sh.querySelectorAll('.modal-actions button').forEach(function (b) { if (/Để sau/.test(b.textContent)) b.textContent = 'Đóng'; });
+      var acts = sh.querySelector('.modal-actions');
+      if (acts && !sh.querySelector('.hh-mate-note')) acts.insertAdjacentHTML('beforebegin', '<p class="note hh-mate-note">Hợp đồng và tiền cọc đứng tên khách chính ' + esc(mainName(m.room, m.c)) + '.</p>');
+      return r;
+    };
+  }
+  // Lần đầu vào app: đọc điều khoản / nội quy rồi bấm Đã đọc (ghi qua sự kiện phòng)
+  var rulesAsked = {};
+  function askRules() {
+    var m = meMate(); if (!m || m.p.rulesReadAt || rulesAsked[m.p.id] || eventPending(m.room, m.p.id, 'rules') || document.querySelector('.modal-overlay')) return;
+    try { if (sessionStorage.getItem('hhRules:' + m.p.id)) return; } catch (e) {}
+    var c = m.c; if (!signed(c)) return;
+    rulesAsked[m.p.id] = 1;
+    try { window.showContract(); } catch (e) { return; }
+    var sheets = document.querySelectorAll('.modal-overlay .modal-sheet'), sh = sheets[sheets.length - 1]; if (!sh) return;
+    var head = sh.querySelector('.modal-head'); if (head) head.textContent = 'Chào ' + acct().split('|')[1] + ' · nội quy phòng ' + m.room;
+    var acts = sh.querySelector('.modal-actions'); if (!acts) return;
+    acts.insertAdjacentHTML('beforebegin', '<label class="hh-check"><input type="checkbox" data-hh-rules-ok> Tôi đã đọc nội quy và điều khoản</label><p class="user-error" hidden></p>');
+    acts.innerHTML = '<button type="button" data-hh-rules-later>Để sau</button><button type="button" class="save" data-hh-rules>Đã đọc</button>';
+    sh.addEventListener('click', function (e) {
+      if (e.target.closest('[data-hh-rules-later]')) { sh.closest('.modal-overlay').remove(); return; }
+      if (!e.target.closest('[data-hh-rules]')) return;
+      if (!sh.querySelector('[data-hh-rules-ok]').checked) { var er = sh.querySelector('.user-error'); er.hidden = false; er.textContent = 'Đánh dấu ô đã đọc trước.'; return; }
+      try { sessionStorage.setItem('hhRules:' + m.p.id, '1'); } catch (x) {}
+      if (window.HOME_REAL) mateEvent(m.room, m.p, 'rules', m.p.names + ' đã đọc nội quy');
+      else setMate(m.room, m.p.id, function (x) { x.rulesReadAt = now(); });
+      sh.closest('.modal-overlay').remove(); toast('Cảm ơn anh/chị'); refresh();
+    });
+  }
+  // Khách chính báo trả phòng: người ở cùng thấy và báo muốn thuê tiếp
+  window.householdMoveOutNote = function (room) {
+    var m = meMate(); if (!m || m.room !== room) return null;
+    var mo = null; try { mo = moveOutRequest(room); } catch (e) {}
+    if (!mo) return null;
+    var asked = m.p.wantStayAt || eventPending(room, m.p.id, 'wantStay');
+    return { title: (mainName(room, m.c) || 'Khách chính') + ' báo trả phòng ngày ' + mo.date, sub: asked ? 'Đã báo muốn thuê tiếp · chờ quản lý liên hệ' : 'Muốn ở lại thì bấm Thuê tiếp', btn: asked ? '' : 'Thuê tiếp', run: asked ? null : function () { askStay(room); } };
+  };
+  function askStay(room) {
+    var m = meMate(); if (!m) return;
+    var o = document.createElement('div'); o.className = 'modal-overlay';
+    o.innerHTML = '<div class="modal-sheet"><div class="modal-head">Thuê tiếp ' + esc(room) + '</div><p class="confirm-text">Quản lý sẽ liên hệ lập hợp đồng mới đứng tên anh/chị khi ' + esc(mainName(room, m.c) || 'khách chính') + ' trả phòng. Cần đóng cọc mới; cọc cũ hoàn cho khách chính.</p><div class="modal-actions"><button type="button" data-close>Huỷ</button><button type="button" class="save" data-ok>Báo thuê tiếp</button></div></div>';
+    o.addEventListener('click', function (e) {
+      if (e.target === o || e.target.closest('[data-close]')) return o.remove();
+      if (!e.target.closest('[data-ok]')) return;
+      if (window.HOME_REAL) mateEvent(room, m.p, 'wantStay', m.p.names + ' muốn thuê tiếp');
+      else { setMate(room, m.p.id, function (x) { x.wantStayAt = now(); }); appendRoomHistory(room, { kind: 'contract', title: 'Người ở cùng muốn thuê tiếp: ' + m.p.names, detail: 'Khi hoàn cọc, chọn Chuyển hợp đồng', actor: m.p.names, tenantName: m.p.names }); }
+      o.remove(); toast('Đã báo quản lý'); refresh();
+    });
+    (typeof appendToPhone === 'function' ? appendToPhone : function (x) { document.querySelector('.phone').appendChild(x); })(o);
+  }
+  if (typeof window.setAccount === 'function') {
+    var baseSet = window.setAccount;
+    window.setAccount = function () { var r = baseSet.apply(this, arguments); try { trimLease(); } catch (e) {} setTimeout(function () { try { askRules(); } catch (e) {} }, 900); return r; };
+  }
+  // Xoá tài khoản người ở cùng: không cần trả phòng trước; xoá xong thì người đó coi như đã dọn đi
+  if (typeof window.tenantHasActiveLease === 'function') {
+    var baseLease = window.tenantHasActiveLease;
+    window.tenantHasActiveLease = function (user) { if (user && window.isRoommateKey(user.key)) return false; return baseLease.apply(this, arguments); };
+  }
+  if (typeof window.saveUsers === 'function') {
+    var baseSaveUsers = window.saveUsers;
+    window.saveUsers = function (list) {
+      var before = {}; try { (readUsers() || []).forEach(function (u) { before[u.key] = u.status; }); } catch (e) {}
+      var r = baseSaveUsers.apply(this, arguments);
+      try { (list || []).forEach(function (u) {
+        if (!u || u.role !== 'tenant' || u.status !== 'Đã xoá' || before[u.key] === 'Đã xoá') return;
+        var m = window.roommateEntry(u.key); if (m) leave(m.room, m.p.id, currentActorName(), 'Xoá tài khoản');
+      }); } catch (e) {}
+      return r;
+    };
+  }
+  // Hoàn cọc: quản lý chọn cả phòng dọn đi hay chuyển hợp đồng cho một người ở cùng
+  if (typeof window.openCheckoutForm === 'function') {
+    var baseCo = window.openCheckoutForm;
+    window.openCheckoutForm = function (room) {
+      var r = baseCo.apply(this, arguments), c = contracts()[room], list = c ? mates(c) : [];
+      var forms = document.querySelectorAll('.modal-overlay form.modal-sheet'), form = forms[forms.length - 1];
+      if (!list.length || !form || form.querySelector('[name=hhMode]')) return r;
+      var at = Array.prototype.find.call(form.querySelectorAll('label'), function (l) { return /^Khoản trừ vào cọc/.test(l.textContent.trim()); });
+      var old = (readCheckouts()[room] || {}).household, pick = old && old.mode === 'transfer' ? 'to:' + old.to : 'all';
+      var html = '<div class="hh-co"><label>Người ở cùng (' + list.length + ')</label><label class="hh-check"><input type="radio" name="hhMode" value="all"' + (pick === 'all' ? ' checked' : '') + '> Cả phòng dọn đi</label>' +
+        list.map(function (p) { return '<label class="hh-check"><input type="radio" name="hhMode" value="to:' + esc(p.id) + '"' + (pick === 'to:' + p.id ? ' checked' : '') + '> Chuyển hợp đồng cho ' + esc(p.names) + (p.wantStayAt ? ' · muốn thuê tiếp' : '') + '</label>'; }).join('') +
+        '<p class="note">Chuyển hợp đồng: lập hợp đồng mới đứng tên người ở lại, cọc mới; cọc cũ vẫn hoàn cho ' + esc(c.tenantName || 'khách chính') + '. Giữ tài khoản người ở lại.</p></div>';
+      if (at) at.insertAdjacentHTML('beforebegin', html); else (form.querySelector('.modal-actions') || form.lastElementChild).insertAdjacentHTML('beforebegin', html);
+      form.addEventListener('submit', function () {
+        var v = (form.querySelector('[name=hhMode]:checked') || {}).value || 'all';
+        setTimeout(function () {
+          var err = form.querySelector('.user-error'); if (document.body.contains(form) && err && !err.hidden) return;
+          var all2 = readCheckouts(), rec = all2[room]; if (!rec || rec.status === 'Đã hoàn cọc') return;
+          var p = v.indexOf('to:') === 0 ? list.find(function (x) { return x.id === v.slice(3); }) : null;
+          rec.household = p ? { mode: 'transfer', to: p.id, name: p.names, phone: p.phone || '', by: currentActorName(), at: now() } : { mode: 'all', by: currentActorName(), at: now() };
+          try { checkoutLog(rec, p ? 'Chuyển hợp đồng cho người ở cùng ' + p.names : 'Cả phòng dọn đi (' + list.length + ' người ở cùng)'); } catch (e) {}
+          saveCheckout(rec);
+        }, 0);
+      });
+      return r;
+    };
+  }
+  // Khách chính nhận hoàn cọc xong: người ở cùng dọn đi theo (trừ người nhận chuyển hợp đồng); 30 ngày sau xoá tài khoản như khách chính
+  function closeHousehold() {
+    if (['owner', 'manager'].indexOf(acct().split('|')[0]) < 0) return;
+    var recs = readCheckouts(), changed = false, users = readUsers(), uChanged = false;
+    Object.keys(recs).forEach(function (room) {
+      var rec = recs[room]; if (!rec || rec.status !== 'Đã hoàn cọc' || !rec.contract || !isStaff(room)) return;
+      var to = rec.household && rec.household.mode === 'transfer' ? rec.household.to : '';
+      if (!rec.householdClosedAt) {
+        (rec.contract.extraPeople || []).forEach(function (p) { if (p.leftAt) return; if (p.id === to) { p.transferredAt = now(); return; } p.leftAt = rec.tenantConfirmedAt || now(); p.leftBy = 'Trả phòng'; });
+        rec.householdClosedAt = now(); changed = true;
+        if (to) appendRoomHistory(room, { kind: 'contract', title: 'Chuyển hợp đồng cho người ở cùng: ' + rec.household.name, detail: 'Cọc cũ đã hoàn cho ' + (rec.tenantName || 'khách chính') + ' · cần lập hợp đồng mới', actor: currentActorName() });
+      }
+      if (rec.accountDeletedAt && !rec.mateAccountsClosedAt) {
+        (rec.contract.extraPeople || []).forEach(function (p) {
+          if (p.id === to || !p.account || p.noAccount) return;
+          var u = users.find(function (x) { return x.key === p.account || (p.uuid && x.uuid === p.uuid); });
+          if (u && u.status !== 'Đã xoá') { u.status = 'Đã xoá'; u.deletedAt = now(); try { logUserChange(u, 'Tự xoá cùng khách chính sau khi trả phòng'); } catch (e) {} uChanged = true; }
+        });
+        rec.mateAccountsClosedAt = now(); changed = true;
+      }
+    });
+    if (changed) localStorage.setItem('homeCheckouts', JSON.stringify(recs));
+    if (uChanged) { baseSaveUsers ? baseSaveUsers(users) : saveUsers(users); try { refreshUserAccounts(); } catch (e) {} }
+  }
+  setTimeout(closeHousehold, 3500); setInterval(closeHousehold, 30000);
+  // Ảnh giấy tờ người ở cùng: xoá sau 1 năm kể từ ngày dọn đi; lời mời đã huỷ / không duyệt thì xoá ngay.
+  // App thật: chỉ máy chủ nhà xoá file trong kho, xoá xong mới bỏ dấu ảnh khỏi hợp đồng
+  var purging = {};
+  function purgeMatePhotos() {
+    var role = acct().split('|')[0]; if (['owner', 'manager'].indexOf(role) < 0) return;
+    var me = serverMe(); if (window.HOME_REAL && (!me || me.vai_tro !== 'chu_nha' || !window.HOME_DB || !window.HOME_DB.removePhotos)) return;
+    var cs = contracts();
+    Object.keys(cs).forEach(function (room) {
+      var c = cs[room]; if (!c) return;
+      var old = function (p) { var t = parseViTime(p.leftAt) || 0; return p.leftAt && t && Date.now() - t >= 365 * 864e5 && (p.photos || []).length; };
+      var dead = function (v) { return ['Đã huỷ', 'Đã bỏ', 'Từ chối'].indexOf(v.status) >= 0 && (v.photos || []).length; };
+      var people = all(c).filter(old), inv = (c.roommateInvites || []).filter(dead);
+      // Đề nghị của người ở cùng bị khách chính không đồng ý / đã rút: ảnh giấy tờ xoá ngay
+      var gone = proposals(room).filter(function (x) { return x.closed && (x.closed.action !== 'invited' || ['Đã huỷ', 'Đã bỏ', 'Từ chối'].indexOf(x.closed.invite.status) >= 0) && (x.ev.v.photos || []).length; }).map(function (x) { return x.ev.id; });
+      if (!people.length && !inv.length && !gone.length) return;
+      var props = gone.map(function (id) { return ((readTenantEventsSafe()[room] || []).find(function (e) { return e && e.id === id; }) || { v: {} }).v; });
+      var clear = function () {
+        var f = contracts()[room];
+        if (f && (people.length || inv.length)) { all(f).filter(old).forEach(function (p) { p.photos = []; p.photosPurgedAt = now(); }); (f.roommateInvites || []).filter(dead).forEach(function (v) { v.photos = []; }); saveHomeContract(room, f); }
+        if (gone.length) { var evAll = readTenantEventsSafe(); (evAll[room] || []).forEach(function (e) { if (e && gone.indexOf(e.id) >= 0 && e.v) { e.v.photos = []; e.v.photosPurgedAt = now(); } }); localStorage.setItem('homeTenantEvents', JSON.stringify(evAll)); }
+      };
+      if (!window.HOME_REAL) return clear();
+      if (purging[room]) return;
+      var paths = people.concat(inv, props).reduce(function (a, p) { return a.concat(p.photos || []); }, []).map(String).filter(function (x) { return x.indexOf('sb:') === 0; }).map(function (x) { return x.slice(3); });
+      purging[room] = 1;
+      (paths.length ? window.HOME_DB.removePhotos(paths) : Promise.resolve(true)).then(function (ok) { delete purging[room]; if (ok) clear(); });
+    });
+  }
+  setTimeout(purgeMatePhotos, 5000); setInterval(purgeMatePhotos, 3600000);
+  function transferWaiting(room, rec) {
+    var h = rec && rec.household; if (!h || h.mode !== 'transfer' || rec.status !== 'Đã hoàn cọc' || h.contractAt) return null;
+    var cur = contracts()[room]; if (cur && norm(cur.tenantName) === norm(h.name)) return null;
+    return h;
+  }
+  function openTransfer(room, h) {
+    if (typeof openContractDraft !== 'function') return;
+    openContractDraft(room);
+    setTimeout(function () {
+      var forms = document.querySelectorAll('.modal-overlay form'), f = forms[forms.length - 1]; if (!f) return;
+      var n = f.querySelector('[name=tenant]'); if (n && !n.value) n.value = h.name;
+      var ph = f.querySelector('[name=phone]'), cc = f.querySelector('[name=phoneCc]');
+      if (ph && !ph.value && h.phone) { var sp = null; try { sp = splitPhoneCc(h.phone); } catch (e) {} if (sp) { ph.value = sp.local; if (cc && sp.cc) cc.value = sp.cc; } else ph.value = h.phone; }
+    }, 60);
+  }
+  var baseWork2 = collectWorkItems;
   collectWorkItems = function () {
-    var items = base.apply(this, arguments), scope = workScope();
+    var items = baseWork2.apply(this, arguments), scope = workScope();
     if (['owner', 'manager'].indexOf(scope.role) < 0) return items;
-    var all = contracts();
-    Object.keys(all).forEach(function (room) {
-      (all[room] && all[room].roommateInvites || []).forEach(function (v) {
-        if (v.status === 'Từ chối') return;
-        var house = ''; try { house = propertyIdForRoom(room); } catch (e) {}
-        if (!scope.houseOk(house) || !scope.roomOk(room)) return;
-        var can = isStaff(room);
-        items.push({ type: 'contract', house: house, room: room, title: room + ': Duyệt người ở cùng · ' + v.name, sub: (can ? v.by + ' mời · ' + v.phone : 'Chờ quản lý duyệt · ' + v.by + ' mời'), time: parseViTime(v.at) || Date.now(),
+    var cs = contracts(), recs = readCheckouts();
+    Object.keys(cs).forEach(function (room) {
+      var c = cs[room], h = house(room); if (!c || !scope.houseOk(h) || !scope.roomOk(room)) return;
+      var mo = null; try { mo = moveOutRequest(room); } catch (e) {}
+      mates(c).forEach(function (p) {
+        if (!p.wantStayAt || (!mo && !(recs[room] && recs[room].status !== 'Đã hoàn cọc'))) return;
+        items.push({ type: 'contract', house: h, room: room, title: room + ': ' + p.names + ' muốn thuê tiếp', sub: 'Khi hoàn cọc, chọn Chuyển hợp đồng cho ' + p.names, time: parseViTime(p.wantStayAt) || Date.now(),
+          actions: isStaff(room) ? [{ label: 'Xem', run: function () { window.openHousehold(room); } }] : [], target: { type: 'room', room: room } });
+      });
+    });
+    Object.keys(recs).forEach(function (room) {
+      var tw = transferWaiting(room, recs[room]), h = house(room); if (!tw || !scope.houseOk(h) || !scope.roomOk(room)) return;
+      items.push({ type: 'contract', house: h, room: room, title: room + ': Lập hợp đồng mới cho ' + tw.name, sub: 'Chuyển hợp đồng từ ' + (recs[room].tenantName || 'khách cũ') + ' · cọc mới', time: parseViTime(tw.at) || Date.now(),
+        actions: isStaff(room) ? [{ label: 'Lập', run: function () { openTransfer(room, tw); } }] : [], target: { type: 'room', room: room } });
+    });
+    return items;
+  };
+
+  var baseWork = collectWorkItems;
+  collectWorkItems = function () {
+    var items = baseWork.apply(this, arguments), scope = workScope();
+    if (['owner', 'manager'].indexOf(scope.role) < 0) return items;
+    var cs = contracts();
+    Object.keys(cs).forEach(function (room) {
+      var c = cs[room]; if (!c) return;
+      var h = house(room);
+      if (!scope.houseOk(h) || !scope.roomOk(room)) return;
+      var can = isStaff(room);
+      pending(c).forEach(function (v) {
+        var st = stageOf(room, c, v);
+        if (st === 'mgr') {
+          var mc = can && scope.role === 'manager';
+          items.push({ type: 'contract', house: h, room: room, title: room + ': Xin cho ở thêm khi phòng đủ (tối đa ' + capOf(room) + ') · ' + v.name,
+            sub: (mc ? v.by + (v.agreedBy ? ' đề nghị · ' + v.agreedBy + ' đồng ý' : ' mời') + ' · anh/chị xem rồi gửi chủ nhà' : 'Chờ quản lý xem rồi gửi chủ nhà · ' + v.by + (v.agreedBy ? ' đề nghị' : ' mời')), time: parseViTime(v.at) || Date.now(),
+            actions: mc ? [{ label: 'Xem', run: function () { reviewInvite(room, v.id); } }, { label: 'Không duyệt', run: function () { rejectInvite(room, v.id); } }] : [], target: { type: 'room', room: room } });
+          return;
+        }
+        if (st === 'owner') {
+          var own = scope.role === 'owner';
+          items.push({ type: 'contract', house: h, room: room, title: room + ': Xin cho ở thêm khi phòng đủ (tối đa ' + capOf(room) + ') · ' + v.name,
+            sub: own ? v.by + (v.agreedBy ? ' đề nghị · ' + v.agreedBy + ' đồng ý' : v.staffAdd ? ' thêm' : ' mời') + (v.mgrOk ? ' · quản lý đã đồng ý' : '') : 'Chờ chủ nhà đồng ý cho ở thêm · ' + v.by + (v.staffAdd ? ' thêm' : v.agreedBy ? ' đề nghị' : ' mời'), time: parseViTime(v.at) || Date.now(),
+            actions: own ? [{ label: 'Xem', run: function () { reviewInvite(room, v.id); } }, { label: 'Không đồng ý', run: function () { rejectInvite(room, v.id); } }] : [], target: { type: 'room', room: room } });
+          return;
+        }
+        items.push({ type: 'contract', house: h, room: room, title: room + ': Duyệt người ở cùng · ' + v.name, sub: (can ? v.by + (v.agreedBy ? ' đề nghị · ' + v.agreedBy + ' đồng ý' : ' mời') + (v.phone ? ' · ' + showPh(v.phone) : ' · không cần tài khoản') : 'Chờ quản lý duyệt · ' + v.by + (v.agreedBy ? ' đề nghị' : ' mời')), time: parseViTime(v.at) || Date.now(),
           actions: can ? [{ label: 'Xem', run: function () { reviewInvite(room, v.id); } }, { label: 'Không duyệt', run: function () { rejectInvite(room, v.id); } }] : [], target: { type: 'room', room: room } });
+      });
+      mates(c).forEach(function (p) {
+        if (p.mainOk && p.mainOk.status === 'Chờ' && !mainAnswered(room, p.id)) items.push({ type: 'contract', house: h, room: room, title: room + ': Chờ ' + (mainName(room, c) || 'khách chính') + ' đồng ý người ở cùng ' + p.names, sub: (p.mainOk.by ? p.mainOk.by + ' thêm ' : 'Thêm ') + day(p.mainOk.at) + ' · quá 48 giờ coi như đồng ý', time: parseViTime(p.mainOk.at) || Date.now(), actions: [], target: { type: 'room', room: room } });
+        if (p.leftRequest) items.push({ type: 'contract', house: h, room: room, title: room + ': Xác nhận ' + p.names + ' đã dọn đi', sub: (p.leftRequest.self ? 'Tự báo · quá 3 ngày tự xác nhận' : p.leftRequest.by + ' báo') + ' · ' + day(p.leftRequest.at), time: parseViTime(p.leftRequest.at) || Date.now(),
+          actions: can ? [{ label: 'Xem', run: function () { confirmLeft(room, p.id); } }] : [], target: { type: 'room', room: room } });
+        if (can && p.account && !p.noAccount && !p.accountReadyAt) items.push({ type: 'contract', house: h, room: room, title: room + ': Đặt mật khẩu cho ' + p.names, sub: 'Người ở cùng chưa đăng nhập được', time: parseViTime(p.at) || Date.now(),
+          actions: [{ label: 'Tạo', run: function () { makeAccount(room, p); } }], target: { type: 'room', room: room } });
       });
     });
     return items;
   };
 
-  // Nút trong màn khách và trong chi tiết phòng của quản lý
+  // Tab Người dùng → Thêm khách thuê: phần "Phòng đang thuê: thêm người ở cùng" (anh chốt 15/11)
+  window.householdAddRooms = function (allHouses) {
+    var cs = contracts(), house = ''; try { house = readProperty().id; } catch (e) {}
+    var recs = []; try { recs = collectRoomRecords(true).records; } catch (e) {}
+    return recs.filter(function (r) { return (allHouses || (r.house || propertyIdForRoom(r.code)) === house) && isStaff(r.code) && signed(cs[r.code]); })
+      .map(function (r) {
+        var c = cs[r.code], n = occ(c), cap = capOf(r.code), block = '', short = '';
+        if (movingOut(r.code)) { block = 'Khách chính phòng ' + r.code + ' đã báo trả phòng, không thêm người mới.'; short = 'đang trả phòng'; }
+        else if (!cap) { block = 'Phòng ' + r.code + ' chưa đặt số người tối đa. Vào Phòng → sửa phòng để đặt trước.'; short = 'chưa đặt số người tối đa'; }
+        else if (roomFull(r.code, c, 1)) short = isOwnerNow() ? 'đủ người, vẫn cho ở thêm được' : 'đủ người, cần chủ nhà đồng ý';
+        return { code: r.code, main: mainName(r.code, c), n: n, cap: cap, block: block, blockShort: short };
+      }).sort(function (a, b) { return String(a.code).localeCompare(String(b.code), 'vi', { numeric: true }); });
+  };
+  window.openHouseholdAdd = function (room) { window.openHousehold(room); openAdd(room); };
+  // Nút trong màn khách và trong chi tiết phòng: một nút "Người ở cùng" (thay nút "Thêm người ở" cũ)
   window.householdButton = function (room) {
     var b = document.createElement('button'); b.type = 'button'; b.textContent = 'Người ở cùng';
     b.addEventListener('click', function () { window.openHousehold(room); });
@@ -1164,6 +2297,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     document.querySelectorAll('.phone .rd-sheet').forEach(function (sheet) {
       var add = sheet.querySelector('[data-occupant-add]');
       if (!add || sheet.querySelector('[data-household]')) return;
+      add.hidden = true; add.style.display = 'none';
       add.insertAdjacentHTML('afterend', '<button type="button" class="link-btn" data-household="' + esc(add.dataset.occupantAdd) + '">Người ở cùng</button>');
     });
   }).observe(document.querySelector('.phone') || document.body, { childList: true, subtree: true });
@@ -1209,10 +2343,6 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (c.status === 'Chờ chủ nhà duyệt') add({ room: room, subject: 'Hợp đồng ' + (c.tenantName || ''), match: /Hợp đồng/, who: 'owner', wait: 'Đang chờ chủ nhà duyệt' + (c.createdBy ? ' · ' + c.createdBy + ' lập' : ''), since: t(c.createdAt), show: ['manager', 'tenant'], type: 'contract' });
       if (c.status === 'Chờ người thuê ký') add({ room: room, subject: 'Hợp đồng ' + (c.tenantName || ''), match: /ký hợp đồng|Hợp đồng/, who: 'tenant', whoName: c.tenantName, wait: 'Đang chờ ' + (c.tenantName || 'khách') + ' ký', since: t(c.approvedAt) || t(c.createdAt), show: ['owner', 'manager'], type: 'contract' });
       if (c.renewal && c.renewal.status === 'Chờ chủ nhà duyệt') add({ room: room, subject: 'Gia hạn hợp đồng', match: /gia hạn/i, who: 'owner', wait: 'Đang chờ chủ nhà duyệt gia hạn' + (c.renewal.end ? ' đến ' + c.renewal.end : ''), since: t(c.renewal.at), show: ['manager', 'tenant'], type: 'contract' });
-      (c.roommateInvites || []).forEach(function (v) {
-        if (v.status === 'Từ chối') return;
-        add({ room: room, subject: 'Người ở cùng ' + v.name, match: new RegExp(esc(v.name)), who: 'manager', whoName: mgr(room), wait: 'Đang chờ ' + (mgr(room) || 'quản lý') + ' duyệt', since: t(v.at), show: ['tenant'], type: 'contract' });
-      });
     });
     // Biên bản giao phòng đã gửi, khách chưa xác nhận
     var last = {};
@@ -1259,6 +2389,23 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       if (!n || n.status !== 'Chờ duyệt') return;
       add({ room: '', house: n.house, subject: 'Thông báo: ' + n.title, match: new RegExp(esc(n.title || '')), who: 'owner', wait: 'Đang chờ chủ nhà duyệt', since: t(n.createdAt || n.at), show: ['manager'], onlyName: n.createdBy, type: 'notice' });
     });
+    // Khiếu nại khách gửi chủ nhà: khách theo dõi tới khi chủ nhà trả lời
+    (get('homeComplaints', []) || []).forEach(function (c) {
+      if (!c || c.kind === 'rating' || c.status !== 'Chờ chủ nhà') return;
+      var text = String(c.text || '').replace(/\s+/g, ' ');
+      add({ room: c.room, house: c.house, subject: 'Khiếu nại: ' + (text.length > 50 ? text.slice(0, 48) + '…' : text), match: /khiếu nại/i, who: 'owner', wait: 'Đang chờ chủ nhà trả lời', since: t(c.at), show: ['tenant'], type: 'complaint' });
+    });
+    // Khách báo có người ở lại: theo dõi tới khi quản lý bấm Đã biết
+    (get('homeGuestStays', []) || []).forEach(function (g) {
+      if (!g || g.seenAt) return;
+      add({ room: g.room, house: g.house, by: g.tenantName || '', subject: 'Báo có người ở lại: ' + (g.guest || ''), match: /người ở lại/i, who: 'manager', whoName: mgr(g.room), wait: 'Đang chờ ' + (mgr(g.room) || 'quản lý') + ' xem', since: t(g.at), show: ['tenant'], type: 'room' });
+    });
+    // Yêu cầu xoá tài khoản: người gửi theo dõi tới khi chủ nhà xử lý
+    var dr = get('homeDeleteRequests', {}) || {};
+    Object.keys(dr).forEach(function (key) {
+      var q = dr[key]; if (!q) return;
+      add({ room: q.role === 'tenant' ? q.room : '', house: q.house, subject: 'Yêu cầu xoá tài khoản', match: /xoá tài khoản/i, who: 'owner', wait: 'Đang chờ chủ nhà xử lý', since: t(q.at), show: [q.role], onlyName: q.role === 'manager' ? String(key).split('|')[1] : '', anyHouse: q.role === 'manager', type: 'user' });
+    });
     out.forEach(function (o) { o.days = o.since ? Math.floor((Date.now() - o.since) / DAY) : 0; o.late = o.days > 2; o.sub = o.wait + (o.days > 0 ? ' · đã chờ ' + o.days + ' ngày' : ''); });
     return out;
   };
@@ -1270,7 +2417,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     window.waitingSteps().forEach(function (o) {
       if (o.show.indexOf(scope.role) < 0 || isActor(o, scope.role, scope.name)) return;
       if (o.onlyName && o.onlyName !== scope.name) return;
-      if (!scope.houseOk(o.house) || (o.room && !scope.roomOk(o.room))) return;
+      if (!o.anyHouse && (!scope.houseOk(o.house) || (o.room && !scope.roomOk(o.room)))) return;
       var same = items.filter(function (it) { return (!o.room || (it.room || (it.target && it.target.room) || '') === o.room) && o.match.test(it.title || ''); });
       var viewOnly = function (it) { return (it.actions || []).every(function (a) { return /^(Mở|Xem)/.test(a.label || ''); }); };
       if (same.some(function (it) { return !viewOnly(it); })) return; // mình cũng có việc ở bước này
