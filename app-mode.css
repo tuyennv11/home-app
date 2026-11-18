@@ -305,3 +305,6 @@ body.tr-on .phone .tabs .tab[data-id=requests]{display:flex!important}
 .user-info-row>span:first-child{flex:0 0 auto;white-space:nowrap}
 .user-info-row>strong{min-width:0;overflow-wrap:anywhere;text-align:right}
 .user-card.is-muted{opacity:.55}
+/* Hộp xác nhận: tên khoản dài (Phụ phí N người ở thêm…) xuống dòng, không đè số tiền (tester 18/11) */
+.confirm-info .user-info-row>span:first-child{flex:1 1 0;min-width:35%;white-space:normal;overflow-wrap:anywhere}
+.confirm-info .user-info-row>strong{flex:0 1 auto;max-width:65%;white-space:normal;overflow-wrap:anywhere}
