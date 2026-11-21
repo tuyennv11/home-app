@@ -1,6 +1,6 @@
 {
- "public/legacy/app.js": "2b0d2bb23e0221db7e4aba7fdcb229c2ab7bb9b2",
+ "public/legacy/app.js": "0cfa70efd5ac5848eb044b2b3d146fa1157e1f5f",
  "public/legacy/styles.css": "2600d9e47d8fb11bfd61d7c7105833315cbcd8c9",
  "index.html": "d4f6609189fe02b8a277ec2f03dd1a92909533fb",
- "public/i18n-data.js": "8d28b529bc3797f6a6f2d02aeafa06cfc00de268"
+ "public/i18n-data.js": "1a3f4cdbe28cf1a3321a89df32df3d27278716c3"
 }

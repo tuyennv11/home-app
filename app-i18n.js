@@ -50,6 +50,45 @@
     [/^(thứ \S+|chủ nhật), (\d+) tháng (\d+)$/i, function (m) { var d = WEEK[m[1].toLocaleLowerCase('vi')]; return (d ? d[EN ? 0 : 1] : m[1]) + ', ' + m[2] + '/' + m[3]; }],
     [/^tháng (\d+)\/(\d{4})$/i, function (m) { return (EN ? 'Month ' : 'ខែ ') + m[1] + '/' + m[2]; }],
     [/^sửa: (.+)$/i, function (m) { return (EN ? 'Repair: ' : 'ជួសជុល៖ ') + m[1]; }],
+    [/^tiền đang giữ trong tháng \(thu (.+) − đã chi (.+)\)$/i, function (m) { return EN ? 'Held this month (collected ' + m[1] + ' − spent ' + m[2] + ')' : 'ប្រាក់កំពុងកាន់ក្នុងខែ (ទទួល ' + m[1] + ' − ចំណាយ ' + m[2] + ')'; }],
+    [/^([\d.,]+) m² · ở (\d+)\/(\d+) ngày$/i, function (m) { return EN ? m[1] + ' m² · stayed ' + m[2] + '/' + m[3] + ' days' : m[1] + ' m² · ស្នាក់ ' + m[2] + '/' + m[3] + ' ថ្ងៃ'; }],
+    [/^ở (\d+)\/(\d+) ngày$/i, function (m) { return EN ? 'stayed ' + m[1] + '/' + m[2] + ' days' : 'ស្នាក់ ' + m[1] + '/' + m[2] + ' ថ្ងៃ'; }],
+    [/^bạn được hưởng ([\d.,]+)%$/i, function (m) { return EN ? 'Your share ' + m[1] + '%' : 'ចំណែករបស់អ្នក ' + m[1] + '%'; }],
+    [/^chờ duyệt (.+)$/i, function (m) { return EN ? 'awaiting approval ' + m[1] : 'រង់ចាំអនុម័ត ' + m[1]; }],
+    [/^trả lại (.+) cùng tiền hoàn cọc$/i, function (m) { return EN ? 'Returned to ' + m[1] + ' with the deposit refund' : 'សងជូន ' + m[1] + ' ជាមួយប្រាក់កក់'; }],
+    [/^chi phí chung (.+) chia theo m² và số ngày ở của các phòng thuê trong tháng \(([\d.,]+) m²\)( · không có phòng thuê nên chủ nhà chịu)?$/i, function (m) { return EN ? 'Shared cost ' + m[1] + ' is split by m² and days stayed of rented rooms this month (' + m[2] + ' m²)' + (m[3] ? ' · no rented room, so the owner bears it' : '') : 'ចំណាយរួម ' + m[1] + ' ចែកតាម m² និងចំនួនថ្ងៃស្នាក់នៃបន្ទប់ជួលក្នុងខែ (' + m[2] + ' m²)' + (m[3] ? ' · គ្មានបន្ទប់ជួល ម្ចាស់ផ្ទះទទួល' : ''); }],
+    [/^quản lý nhận phần hưởng theo % lợi nhuận phòng mình phụ trách \((.+)\)$/i, function (m) { return EN ? 'Managers get their % share of the profit of rooms they manage (' + m[1] + ')' : 'អ្នកគ្រប់គ្រងទទួលចំណែក % នៃប្រាក់ចំណេញបន្ទប់ដែលខ្លួនគ្រប់គ្រង (' + m[1] + ')'; }],
+    [/^làm lại (.+) cho khách (.+)$/i, function (m) { return (EN ? 'Replace ' : 'ធ្វើថ្មី ') + (EN ? any(m[1]).toLowerCase() : any(m[1])) + (EN ? ' for tenant ' : ' សម្រាប់អ្នកជួល ') + m[2]; }],
+    [/^(.+) \+ trả thêm$/i, function (m) { return (one(m[1]) || any(m[1])) + (EN ? ' + extra' : ' + បង់បន្ថែម'); }],
+    [/^thưởng (\d+)% tiền thuê tháng đầu$/i, function (m) { return EN ? m[1] + '% bonus of first month rent' : 'រង្វាន់ ' + m[1] + '% នៃថ្លៃជួលខែដំបូង'; }],
+    [/^khách trả dư (.+): trừ vào khoản khác còn nợ \((.+)\)(?:, còn (.+) ghi là tiền trả trước)?\.$/i, function (m) { return EN ? 'Tenant overpaid ' + m[1] + ': applied to other amounts owed (' + m[2] + ')' + (m[3] ? ', ' + m[3] + ' kept as prepayment.' : '.') : 'អ្នកជួលបង់លើស ' + m[1] + ': កាត់ចូលបំណុលផ្សេង (' + m[2] + ')' + (m[3] ? ', នៅសល់ ' + m[3] + ' ទុកជាប្រាក់បង់មុន។' : '។'); }],
+    [/^đã báo (.+) · chờ xác nhận$/i, function (m) { return EN ? 'Reported ' + m[1] + ' · awaiting confirmation' : 'បានរាយការណ៍ ' + m[1] + ' · រង់ចាំបញ្ជាក់'; }],
+    [/^cần đóng (.+) · đã báo (.+)$/i, function (m) { return EN ? 'Due ' + m[1] + ' · reported ' + m[2] : 'ត្រូវបង់ ' + m[1] + ' · បានរាយការណ៍ ' + m[2]; }],
+    [/^khách mất (.+): thu (.+)$/i, function (m) { return EN ? 'Tenant lost ' + any(m[1]).toLowerCase() + ': charge ' + m[2] : 'អ្នកជួលបាត់ ' + any(m[1]) + ': ទារ ' + m[2]; }],
+    [/^khách còn (.+) tiền trả trước: cộng vào tiền hoàn cọc\.?$/i, function (m) { return EN ? 'Tenant has ' + m[1] + ' prepaid left: added to the deposit refund.' : 'អ្នកជួលនៅសល់ប្រាក់បង់មុន ' + m[1] + ': បូកចូលប្រាក់កក់សង។'; }],
+    [/^đã dọn đi \((\d+)\)( ›)?$/i, function (m) { return (EN ? 'Moved out (' : 'បានចេញ (') + m[1] + ')' + (m[2] || ''); }],
+    [/^ẩn khách đã dọn đi$/i, function () { return EN ? 'Hide moved-out tenants' : 'លាក់អ្នកជួលដែលបានចេញ'; }],
+    [/^(.+) đã nhận lại (.+) lúc (.+)$/i, function (m) { return EN ? m[1] + ' received ' + m[2] + ' back at ' + m[3] : m[1] + ' បានទទួល ' + m[2] + ' វិញនៅ ' + m[3]; }],
+    [/^biên lai đã thu \((\d+)\)$/i, function (m) { return (EN ? 'Receipts (' : 'បង្កាន់ដៃបានទទួល (') + m[1] + ')'; }],
+    [/^(\d+) ảnh$/i, function (m) { return m[1] + (EN ? (m[1] === '1' ? ' photo' : ' photos') : ' រូបភាព'); }],
+    [/^deposit forfeited: trả phòng trước hạn(.*)$/i, function (m) { return EN ? 'Deposit forfeited: moved out before the end of the term' + (m[1] ? any(m[1]) : '') : 'បាត់ប្រាក់កក់៖ ចេញពីបន្ទប់មុនផុតកំណត់' + (m[1] ? any(m[1]) : ''); }],
+    [/^ghi lại bồi thường: (sửa )?(.+)$/i, function (m) { return (EN ? 'Compensation re-entered: ' : 'កត់សំណងឡើងវិញ៖ ') + (m[1] ? (EN ? 'repair ' : 'ជួសជុល ') : '') + any(m[2]); }],
+    [/^giá thuê phòng mới \((.+)\)$/i, function (m) { return (EN ? 'New room rent (' : 'ថ្លៃជួលបន្ទប់ថ្មី (') + m[1] + ')'; }],
+    [/^tiền cọc phòng mới \((.+)\)$/i, function (m) { return (EN ? 'New room deposit (' : 'ប្រាក់កក់បន្ទប់ថ្មី (') + m[1] + ')'; }],
+    [/^(P\.\S+): chờ chủ nhà chuyển (.+) hoàn cọc$/i, function (m) { return m[1] + (EN ? ': waiting for the owner to send ' + m[2] + ' for the deposit refund' : ': រង់ចាំម្ចាស់ផ្ទះផ្ញើ ' + m[2] + ' សម្រាប់សងប្រាក់កក់'); }],
+    [/^nhận tiền rồi trả khách (.+); nếu tự ứng trước thì số này được trừ khi chốt tháng$/i, function (m) { return EN ? 'Receive it, then pay ' + m[1] + '; if you advance it yourself, it is deducted at month close' : 'ទទួលប្រាក់ រួចសងជូន ' + m[1] + '; បើអ្នកបង់មុនខ្លួនឯង ចំនួននេះត្រូវកាត់ពេលបិទខែ'; }],
+    [/^(P\.\S+) · trả lại khách cọc dư khi chuyển phòng$/i, function (m) { return m[1] + (EN ? ' · Extra deposit returned on room transfer' : ' · សងប្រាក់កក់លើសពេលប្ដូរបន្ទប់'); }],
+    [/^(P\.\S+): trả khách (.*?) ?(\S+) cọc dư khi chuyển phòng$/i, function (m) { return m[1] + (EN ? ': return ' + m[3] + ' extra deposit to ' + (m[2] || 'the tenant') + ' (room transfer)' : ': សងប្រាក់កក់លើស ' + m[3] + ' ឱ្យ ' + (m[2] || 'អ្នកជួល') + ' (ប្ដូរបន្ទប់)'); }],
+    [/^(P\.\S+): chờ (.+?) trả khách (\S+) cọc dư$/i, function (m) { return m[1] + (EN ? ': waiting for ' + m[2] + ' to return ' + m[3] + ' extra deposit' : ': រង់ចាំ ' + m[2] + ' សងប្រាក់កក់លើស ' + m[3]); }],
+    [/^cọc phòng mới thấp hơn$/i, function () { return EN ? 'new room deposit is lower' : 'ប្រាក់កក់បន្ទប់ថ្មីទាបជាង'; }],
+    [/^bấm sau khi đã trả$/i, function () { return EN ? 'tap after paying' : 'ចុចក្រោយពេលបានសង'; }],
+    [/^chờ (.+) trả khách$/i, function (m) { return EN ? 'waiting for ' + m[1] + ' to pay the tenant' : 'រង់ចាំ ' + m[1] + ' សងអ្នកជួល'; }],
+    [/^bấm sau khi đã đưa tiền cho (.+)$/i, function (m) { return EN ? 'Tap after you have paid ' + m[1] : 'ចុចក្រោយពេលបានឱ្យប្រាក់ ' + m[1]; }],
+    [/^không tính doanh thu$/i, function () { return EN ? 'not revenue' : 'មិនគិតជាចំណូល'; }],
+    [/^huỷ khoản: (.+)$/i, function (m) { return (EN ? 'Charge cancelled: ' : 'លុបការគិតប្រាក់៖ ') + any(m[1]); }],
+    [/^huỷ bồi thường: (.+)$/i, function (m) { return (EN ? 'Compensation cancelled: ' : 'លុបសំណង៖ ') + any(m[1]); }],
+    [/^trả lại (.+) vào tiền trả trước$/i, function (m) { return EN ? m[1] + ' returned as prepayment' : 'សង ' + m[1] + ' ជាប្រាក់បង់មុន'; }],
+    [/^tổng đang giữ (.+)$/i, function (m) { return (EN ? 'Total held ' + m[1] : 'សរុបកំពុងកាន់ ' + m[1]); }],
     [/^chờ (.+) xác nhận$/i, function (m) { return (EN ? 'waiting for ' + m[1] + ' to confirm' : 'រង់ចាំ ' + m[1] + ' បញ្ជាក់'); }],
     [/^còn (.+) chưa báo$/i, function (m) { return (EN ? m[1] + ' not reported yet' : 'នៅ ' + m[1] + ' មិនទាន់រាយការណ៍'); }],
     [/^từ (\d{1,2}\/\d{1,2}(?:\/\d{4})?)$/i, function (m) { return (EN ? 'from ' : 'ចាប់ពី ') + m[1]; }],
@@ -57,6 +96,9 @@
     [/^báo có người ở lại: (.+)$/i, function (m) { return (EN ? 'Guest staying: ' : 'ភ្ញៀវស្នាក់នៅ៖ ') + m[1]; }],
     [/^phòng (P\.\S+)$/i, function (m) { return (m[0] === m[0].toUpperCase() ? (EN ? 'ROOM ' : 'បន្ទប់ ') : (EN ? 'Room ' : 'បន្ទប់ ')) + m[1]; }],
     [/^báo đã trả: (.+)$/i, function (m) { return (EN ? 'Reported paid: ' : 'បានរាយការណ៍ថាបានបង់៖ ') + (one(m[1]) || m[1]); }],
+    [/^đã thu (.+) \(một phần\)$/i, function (m) { return (EN ? 'Collected: ' : 'បានប្រមូល៖ ') + (one(m[1]) || any(m[1])) + (EN ? ' (partial)' : ' (មួយផ្នែក)'); }],
+    [/^đã thu (phụ phí .+)$/i, function (m) { return (EN ? 'Collected: ' : 'បានប្រមូល៖ ') + (one(m[1].charAt(0).toUpperCase() + m[1].slice(1)) || any(m[1])); }],
+    [/^(.+) đòi$/i, function (m) { return EN ? 'collected by ' + m[1] : m[1] + ' ទារ'; }],
     [/^đã thu ((?:tiền|điện nước) .+)$/i, function (m) { return (EN ? 'Collected: ' : 'បានប្រមូល៖ ') + (one(m[1]) || m[1]); }],
     [/^báo trả phòng: (.+)$/i, function (m) { return (EN ? 'Move-out notice: ' : 'ជូនដំណឹងចាកចេញ៖ ') + m[1]; }],
     [/^dọn đi (\d+\/\d+(?:\/\d{4})?)$/i, function (m) { return (EN ? 'moving out ' : 'ចាកចេញ ') + m[1]; }],
@@ -68,7 +110,7 @@
     // Khoản nợ, trả trước, phụ phí: tên khoản ghi tiếng Việt trong dữ liệu, chỉ dịch lúc hiện
     [/^khách trả thiếu (.+): phần còn lại vẫn ghi nợ$/i, function (m) { return EN ? 'Tenant paid ' + m[1] + ' short: the rest stays owed' : 'អ្នកជួលបង់ខ្វះ ' + m[1] + '៖ ប្រាក់នៅសល់នៅតែជំពាក់'; }],
     [/^khách trả dư (.+): ghi là tiền trả trước, tự trừ vào kỳ sau$/i, function (m) { return EN ? 'Tenant paid ' + m[1] + ' extra: recorded as prepaid, deducted next period' : 'អ្នកជួលបង់លើស ' + m[1] + '៖ កត់ជាការបង់មុន កាត់ក្នុងគ្រាបន្ទាប់'; }],
-    [/^trong đó tiền cọc (.+) do người thu giữ, không tính doanh thu$/i, function (m) { return EN ? 'Of which deposit ' + m[1] + ', kept by the collector, not counted as revenue' : 'ក្នុងនោះប្រាក់កក់ ' + m[1] + ' អ្នកប្រមូលរក្សាទុក មិនគិតជាចំណូល'; }],
+    [/^trong đó tiền cọc (.+) nộp chủ nhà, không tính doanh thu$/i, function (m) { return EN ? 'Of which deposit ' + m[1] + ', goes to the owner, not counted as revenue' : 'ក្នុងនោះប្រាក់កក់ ' + m[1] + ' ប្រគល់ម្ចាស់ផ្ទះ មិនគិតជាចំណូល'; }],
     [/^ghi nợ cho khách: (.+)$/i, function (m) { return (EN ? 'Charged to tenant: ' : 'កត់ជំពាក់អ្នកជួល៖ ') + any(m[1]); }],
     [/^trừ tiền trả trước vào (.+)$/i, function (m) { return (EN ? 'Prepaid amount used for ' : 'កាត់ប្រាក់បង់មុនសម្រាប់ ') + any(m[1]); }],
     [/^(.+): đã sửa xong$/i, function (m) { return EN ? m[1] + ': repaired' : m[1] + '៖ បានជួសជុលរួច'; }],
@@ -102,7 +144,7 @@
     [/^bồi thường sửa (.+)$/i, function (m) { return (EN ? 'Repair compensation: ' : 'សំណងជួសជុល៖ ') + any(m[1]); }],
     [/^nợ sau trả phòng: (.+)$/i, function (m) { return (EN ? 'Owed after move-out: ' : 'ជំពាក់ក្រោយប្រគល់បន្ទប់៖ ') + any(m[1]); }],
     [/^chênh lệch tiền thuê (\d+) ngày ở (P\.\S+)$/i, function (m) { return EN ? 'Rent difference for ' + m[1] + ' days in ' + m[2] : 'ភាពខុសគ្នាថ្លៃជួល ' + m[1] + ' ថ្ងៃនៅ ' + m[2]; }],
-    [/^làm lại (.+) bị mất$/i, function (m) { return (EN ? 'Replace lost ' : 'ធ្វើថ្មី ') + any(m[1]) + (EN ? '' : ' ដែលបាត់'); }],
+    [/^làm lại (.+) bị mất$/i, function (m) { return (EN ? 'Replace lost ' : 'ធ្វើថ្មី ') + (EN ? any(m[1]).toLowerCase() : any(m[1])) + (EN ? '' : ' ដែលបាត់'); }],
     [/^(?:đã )?thu bởi (.+)$/i, function (m) { return (EN ? 'Collected by ' : 'ប្រមូលដោយ ') + m[1]; }],
     [/^thêm ngày (\S+) bởi (.+)$/i, function (m) { return EN ? 'Added ' + m[1] + ' by ' + m[2] : 'បន្ថែមថ្ងៃ ' + m[1] + ' ដោយ ' + m[2]; }],
     [/^phụ phí (\d+) người ở thêm tháng (\S+)( \(tính theo ngày ở\))?( \(gồm điện nước khoán\))?$/i, function (m) { return EN ? 'Fee for ' + m[1] + ' extra person' + (m[1] === '1' ? '' : 's') + ', month ' + m[2] + (m[3] ? ' (by days stayed)' : '') + (m[4] ? ' (incl. flat utilities)' : '') : 'ថ្លៃមនុស្សបន្ថែម ' + m[1] + ' នាក់ ខែ ' + m[2] + (m[3] ? ' (តាមថ្ងៃស្នាក់នៅ)' : '') + (m[4] ? ' (រួមភ្លើងទឹកថេរ)' : ''); }],
@@ -119,7 +161,7 @@
     [/^trả một phần (.+)$/i, function (m) { return (EN ? 'Part payment: ' : 'បង់មួយផ្នែក៖ ') + any(m[1]); }],
     [/^hạn (\d+\/\d+(?:\/\d+)?)$/i, function (m) { return (EN ? 'Due ' : 'កំណត់ ') + m[1]; }],
     [/^(quá hạn|hạn) (\d+\/\d+) · còn (.+)$/i, function (m) { var late = /^quá/i.test(m[1]); return (EN ? (late ? 'Overdue ' : 'Due ') + m[2] + ' · ' + m[3] + ' left' : (late ? 'ហួសកំណត់ ' : 'កំណត់ ') + m[2] + ' · នៅសល់ ' + m[3]); }],
-    [/^quá hạn (\d+) ngày$/i, function (m) { return EN ? m[1] + ' days overdue' : 'ហួសកំណត់ ' + m[1] + ' ថ្ងៃ'; }],
+    [/^quá hạn (\d+) ngày$/i, function (m) { return EN ? m[1] + (m[1] === '1' ? ' day overdue' : ' days overdue') : 'ហួសកំណត់ ' + m[1] + ' ថ្ងៃ'; }],
     [/^(\d+) (ngày|món|khoản|căn|phòng|người|hoạt động|việc|lần|đêm|tháng)$/i, function (m) {
       var word = { 'ngày': ['days', 'ថ្ងៃ'], 'món': ['items', 'មុខ'], 'khoản': ['items', 'ខ្ទង់'], 'căn': ['houses', 'ផ្ទះ'], 'phòng': ['rooms', 'បន្ទប់'], 'người': ['people', 'នាក់'], 'hoạt động': ['activities', 'សកម្មភាព'], 'việc': ['tasks', 'កិច្ចការ'], 'lần': ['times', 'ដង'], 'đêm': ['nights', 'យប់'], 'tháng': ['months', 'ខែ'] }[m[2].toLocaleLowerCase('vi')];
       return m[1] + ' ' + word[EN ? 0 : 1];
@@ -244,7 +286,7 @@
     [/^(.+): hẹn lại ngày sửa: (\S+)(?: \((.+)\))?$/i, function (m) { return EN ? m[1] + ': rescheduled to ' + m[2] + (m[3] ? ' (' + m[3] + ')' : '') : m[1] + '៖ ណាត់ឡើងវិញ ' + m[2] + (m[3] ? ' (' + m[3] + ')' : ''); }],
     [/^quản lý tự chi tối đa (.+) mỗi lần sửa, trên mức này cần chủ nhà duyệt\.?$/i, function (m) { return EN ? 'The manager can spend up to ' + m[1] + ' per repair; above that the owner must approve.' : 'អ្នកគ្រប់គ្រងចំណាយបានរហូតដល់ ' + m[1] + ' ក្នុងមួយដង លើសនេះត្រូវឲ្យម្ចាស់ផ្ទះអនុម័ត។'; }],
     [/^(?:(.+) )?hẹn (\d+\/\d+\/\d{4})(?: · quá hẹn (\d+) ngày)?$/i, function (m) { return EN ? (m[1] ? m[1] + ': ' : '') + 'repair on ' + m[2] + (m[3] ? ' · ' + m[3] + ' days overdue' : '') : (m[1] ? m[1] + ' ' : '') + 'ណាត់ ' + m[2] + (m[3] ? ' · ហួស ' + m[3] + ' ថ្ងៃ' : ''); }],
-    [/^quá hẹn (\d+) ngày$/i, function (m) { return EN ? m[1] + ' days overdue' : 'ហួសណាត់ ' + m[1] + ' ថ្ងៃ'; }],
+    [/^quá hẹn (\d+) ngày$/i, function (m) { return EN ? m[1] + (m[1] === '1' ? ' day overdue' : ' days overdue') : 'ហួសណាត់ ' + m[1] + ' ថ្ងៃ'; }],
     [/^tiếp nhận, hẹn sửa (\S+)(?: \((.+)\))?$/i, function (m) { return EN ? 'accepted, repair on ' + m[1] + (m[2] ? ' (' + m[2] + ')' : '') : 'ទទួល ណាត់ជួសជុល ' + m[1] + (m[2] ? ' (' + m[2] + ')' : ''); }],
     [/^(.+) báo hư$/i, function (m) { return EN ? m[1] + ' reported it' : m[1] + ' បានរាយការណ៍'; }],
     [/^(.+): đã sửa xong$/i, function (m) { return EN ? m[1] + ': repaired' : m[1] + '៖ ជួសជុលរួច'; }],
@@ -255,6 +297,42 @@
     [/^gửi (\d{1,2}:\d{2}(?: \d{1,2}\/\d{1,2})?|\d{1,2}\/\d{1,2}(?:\/\d{4})?)$/i, function (m) { return (EN ? 'sent ' : 'ផ្ញើ ') + m[1]; }],
     [/^báo trả phòng ngày (.+)$/i, function (m) { return (EN ? 'Move-out on ' : 'ចេញពីបន្ទប់ថ្ងៃ ') + m[1]; }],
     [/^người ở cùng (.+)$/i, function (m) { return (EN ? 'Roommate ' : 'អ្នករស់នៅជាមួយ ') + m[1]; }],
+    [/^đã khóa sổ tháng (\d+(?:\/\d{4})?)$/i, function (m) { return (EN ? 'Books closed for ' : 'បានបិទបញ្ជីខែ ') + m[1]; }],
+    [/^khóa sổ tháng (\d+)$/i, function (m) { return (EN ? 'Books closed for month ' : 'បិទបញ្ជីខែ ') + m[1]; }],
+    [/^chủ nhà xác nhận chốt tháng (\d+)$/i, function (m) { return (EN ? 'Owner confirmed close for month ' : 'ម្ចាស់ផ្ទះបញ្ជាក់បិទបញ្ជីខែ ') + m[1]; }],
+    [/^(.+) gửi số liệu cho chủ nhà tháng (\d+)$/i, function (m) { return m[1] + (EN ? ' sent figures to the owner for month ' : ' បានផ្ញើតួលេខឱ្យម្ចាស់ផ្ទះ ខែ ') + m[2]; }],
+    [/^(.+) chuyển từ phòng (P\.\S+)$/i, function (m) { return m[1] + (EN ? ' moved from room ' : ' បានផ្លាស់ពីបន្ទប់ ') + m[2]; }],
+    [/^(.+) chuyển sang phòng (P\.\S+)$/i, function (m) { return m[1] + (EN ? ' moved to room ' : ' បានផ្លាស់ទៅបន្ទប់ ') + m[2]; }],
+    [/^chuyển từ phòng (P\.\S+) sang (P\.\S+)$/i, function (m) { return EN ? 'Moved from room ' + m[1] + ' to ' + m[2] : 'ផ្លាស់ពីបន្ទប់ ' + m[1] + ' ទៅ ' + m[2]; }],
+    [/^điện nước khoán dư (\S+) trừ vào khoản kế tiếp$/i, function (m) { return EN ? 'Flat utilities overpaid ' + m[1] + ', deducted from the next charge' : 'ថ្លៃទឹកភ្លើងលើស ' + m[1] + ' កាត់ពីការបង់បន្ទាប់'; }],
+    [/^khách (.+) đã xác nhận$/i, function (m) { return EN ? 'confirmed by tenant ' + m[1] : 'អ្នកជួល ' + m[1] + ' បានបញ្ជាក់'; }],
+    [/^(✓ )?khóa sổ tháng (\d+\/\d{4})$/i, function (m) { return (m[1] || '') + (EN ? 'Books closed for ' : 'បិទបញ្ជីខែ ') + m[2]; }],
+    [/^đã khóa sổ tháng (\d+\/\d{4})\. số liệu không đổi nữa; sai sót điều chỉnh vào tháng sau$/i, function (m) { return EN ? 'Books closed for ' + m[1] + '. Figures are final; corrections go into next month.' : 'បានបិទបញ្ជីខែ ' + m[1] + '។ តួលេខមិនប្ដូរទៀតទេ កំហុសនឹងកែនៅខែក្រោយ។'; }],
+    [/^chủ nhà xác nhận chốt tháng (\d+\/\d{4})$/i, function (m) { return (EN ? 'Owner confirmed close for ' : 'ម្ចាស់ផ្ទះបញ្ជាក់បិទបញ្ជីខែ ') + m[1]; }],
+    [/^(.+) gửi số liệu cho chủ nhà tháng (\d+\/\d{4})$/i, function (m) { return m[1] + (EN ? ' sent figures to the owner for ' : ' បានផ្ញើតួលេខឱ្យម្ចាស់ផ្ទះ ខែ ') + m[2]; }],
+    [/^chủ nhà xác nhận đã nhận từ (.+) (\S*\d\S*)$/i, function (m) { return EN ? 'Owner confirmed receiving ' + m[2] + ' from ' + m[1] : 'ម្ចាស់ផ្ទះបញ្ជាក់បានទទួល ' + m[2] + ' ពី ' + m[1]; }],
+    [/^(.+) xác nhận đã nhận (\S*\d\S*)$/i, function (m) { return m[1] + (EN ? ' confirmed receiving ' : ' បញ្ជាក់បានទទួល ') + m[2]; }],
+    [/^(✓ )?đã gửi chủ nhà lúc (.+)$/i, function (m) { return (m[1] || '') + (EN ? 'Sent to owner at ' : 'បានផ្ញើម្ចាស់ផ្ទះនៅ ') + m[2]; }],
+    [/^(✓ )?đã nhận đủ (\S*\d\S*)$/i, function (m) { return (m[1] || '') + (EN ? 'Received in full ' : 'បានទទួលគ្រប់ ') + m[2]; }],
+    [/^xác nhận đã nhận tiền từ (.+)$/i, function (m) { return (EN ? 'Confirm money received from ' : 'បញ្ជាក់បានទទួលប្រាក់ពី ') + m[1]; }],
+    [/^trả tiền cho (.+)$/i, function (m) { return (EN ? 'Pay ' : 'បង់ប្រាក់ឱ្យ ') + m[1]; }],
+    [/^(?!(?:Còn phải|Phải|Đã|Cần) )(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) nộp chủ nhà$/u, function (m) { return m[1] + (EN ? ' remits to the owner' : ' បង់ជូនម្ចាស់ផ្ទះ'); }],
+    [/^trả lại khách (\S*\d\S*) cọc dư khi chuyển phòng$/i, function (m) { return EN ? 'Returned extra deposit ' + m[1] + ' on room transfer' : 'សងប្រាក់កក់លើស ' + m[1] + ' ពេលប្ដូរបន្ទប់'; }],
+    [/^(.+) trả lại khách (.+)$/i, function (m) { return m[1] + (EN ? ' returns it to tenant ' : ' សងជូនអ្នកជួល ') + m[2]; }],
+    [/^(P\.\S+): chuyển (\S*\d\S*) hoàn cọc cho (.+)$/i, function (m) { return m[1] + (EN ? ': send ' + m[2] + ' deposit refund to ' : '៖ ផ្ញើ ' + m[2] + ' សងប្រាក់កក់ឱ្យ ') + m[3]; }],
+    [/^chủ nhà chuyển (\S*\d\S*) hoàn cọc cho (.+)$/i, function (m) { return EN ? 'Owner sent ' + m[1] + ' deposit refund to ' + m[2] : 'ម្ចាស់ផ្ទះបានផ្ញើ ' + m[1] + ' សងប្រាក់កក់ឱ្យ ' + m[2]; }],
+    [/^(\S*\d\S*)\/người\/tháng(?: \(gồm điện nước khoán (\S*\d\S*)\))?$/i, function (m) { return m[1] + (EN ? '/person/month' + (m[2] ? ' (incl. flat utilities ' + m[2] + ')' : '') : '/នាក់/ខែ' + (m[2] ? ' (រួមទឹកភ្លើងថេរ ' + m[2] + ')' : '')); }],
+    [/^(P\.\S+): (đăng ký khách với chính quyền|khai báo tạm trú|xoá tạm trú|báo chính quyền đã chuyển đi) cho (.+)$/i, function (m) { var k = m[2].toLowerCase(), en = { 'đăng ký khách với chính quyền': 'register with the authorities', 'khai báo tạm trú': 'declare residence', 'xoá tạm trú': 'remove residence record', 'báo chính quyền đã chuyển đi': 'tell the authorities they moved out' }[k], km = { 'đăng ký khách với chính quyền': 'ចុះឈ្មោះជាមួយអាជ្ញាធរ', 'khai báo tạm trú': 'ប្រកាសស្នាក់នៅ', 'xoá tạm trú': 'លុបការស្នាក់នៅ', 'báo chính quyền đã chuyển đi': 'ជូនដំណឹងអាជ្ញាធរថាបានចេញ' }[k]; return m[1] + ': ' + (EN ? en + ' for ' : km + ' សម្រាប់ ') + m[3]; }],
+    [/^từ chối khoản khách báo · (P\.\S+)$/i, function (m) { return (EN ? 'Reject tenant-reported payment · ' : 'បដិសេធការបង់ដែលអ្នកជួលបានរាយការណ៍ · ') + m[1]; }],
+    [/^cùng (.+)$/i, function (m) { return (EN ? 'With ' : 'ជាមួយ ') + m[1]; }],
+    [/^từ (\d{1,2}\/\d{1,2}\/\d{4})$/i, function (m) { return (EN ? 'from ' : 'ចាប់ពី ') + m[1]; }],
+    [/^số tiền (\S*\d\S*)$/i, function (m) { return (EN ? 'Amount ' : 'ចំនួន ') + m[1]; }],
+    [/^(✓ )?đã nhận (\S*\d\S*)$/i, function (m) { return (m[1] || '') + (EN ? 'Received ' : 'បានទទួល ') + m[2]; }],
+    [/^dư (\S*\d\S*)$/i, function (m) { return (EN ? 'over by ' : 'លើស ') + m[1]; }],
+    [/^còn thiếu (\S*\d\S*)$/i, function (m) { return (EN ? 'short by ' : 'នៅខ្វះ ') + m[1]; }],
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) nộp (\S*\d\S*) \((còn phải|dư) (\S*\d\S*)\)$/u, function (m) { var over = m[3] === 'dư'; return m[1] + (EN ? ' sent ' + m[2] + (over ? ' (over by ' : ' (still owes ') : ' បានផ្ញើ ' + m[2] + (over ? ' (លើស ' : ' (នៅខ្វះ ')) + m[4] + ')'; }],
+    [/^chủ nhà trả (.+?) (\S*\d\S*)(?: \((còn phải|dư) (\S*\d\S*)\))?$/i, function (m) { return (EN ? 'Owner paid ' + m[1] + ' ' + m[2] : 'ម្ចាស់ផ្ទះបានបង់ឱ្យ ' + m[1] + ' ' + m[2]) + (m[3] ? (m[3] === 'dư' ? (EN ? ' (over by ' : ' (លើស ') : (EN ? ' (still owes ' : ' (នៅខ្វះ ')) + m[4] + ')' : ''); }],
+    [/^tiền cọc bổ sung khi chuyển sang (P\.\S+)$/i, function (m) { return (EN ? 'Extra deposit for moving to ' : 'ប្រាក់កក់បន្ថែមពេលប្ដូរទៅ ') + m[1]; }],
     [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) nộp (.+)$/u, function (m) { return m[1] + (EN ? ' sent ' : ' បានផ្ញើ ') + m[2]; }],
     // Dòng việc / lịch sử gọn (13/11): bỏ năm hiện tại → "tháng 11" cũng phải dịch được
     [/^(thu )?tiền thuê tháng (\d+(?:\/\d{4})?)( \(tháng đầu\))?$/i, function (m) { return (m[1] ? (EN ? 'Collect rent for ' : 'ប្រមូលថ្លៃជួលខែ ') : (EN ? 'Rent for ' : 'ថ្លៃជួលខែ ')) + (EN && m[2].indexOf('/') < 0 ? 'month ' : '') + m[2] + (m[3] ? (EN ? ' (first month)' : ' (ខែដំបូង)') : ''); }],
@@ -266,7 +344,7 @@
     [/^khách báo chưa xong: (.+)$/i, function (m) { return (EN ? 'tenant says not fixed: ' : 'អ្នកជួលថាមិនទាន់រួច៖ ') + m[1]; }],
     [/^khách (.+) đã nhận lại tiền cọc$/i, function (m) { return EN ? 'Tenant ' + m[1] + ' received the deposit back' : 'អ្នកជួល ' + m[1] + ' បានទទួលប្រាក់កក់វិញ'; }],
     [/^hoàn ((?:\$|-)?[\d.,]+\s*₫?)$/i, function (m) { return (EN ? 'Refund ' : 'សង ') + m[1]; }],
-    [/^trừ ((?:\$|-)?[\d.,]+\s*₫?)$/i, function (m) { return (EN ? 'less ' : 'កាត់ ') + m[1]; }],
+    [/^trừ ((?:\$|-)?[\d.,]+\s*₫?)$/i, function (m) { return (EN ? 'deducted ' : 'កាត់ ') + m[1]; }],
     [/^(.+) gửi$/i, function (m) { return EN ? 'sent by ' + m[1] : m[1] + ' បានផ្ញើ'; }],
     [/^hoàn cọc: (.+) báo chưa đúng$/i, function (m) { return EN ? 'Deposit refund: ' + m[1] + ' says it is not right' : 'សងប្រាក់កក់៖ ' + m[1] + ' ថាមិនត្រឹមត្រូវ'; }],
     [/^(.+) hoàn trả$/i, function (m) { return EN ? 'Refunded by ' + m[1] : m[1] + ' បានសង'; }],
@@ -286,7 +364,7 @@
     [/^chốt tháng (\d+(?:\/\d{4})?): gửi số liệu cho chủ nhà$/i, function (m) { return EN ? 'Close month ' + m[1] + ': send figures to the owner' : 'បិទបញ្ជីខែ ' + m[1] + '៖ ផ្ញើតួលេខទៅម្ចាស់ផ្ទះ'; }],
     [/^(thu )?điện nước khoán tháng (\d+(?:\/\d{4})?)(?: \((điện|nước)\))?$/i, function (m) { var part = m[3] ? (m[3].toLocaleLowerCase('vi') === 'điện' ? (EN ? ' (electricity)' : ' (អគ្គិសនី)') : (EN ? ' (water)' : ' (ទឹក)')) : ''; return (m[1] ? (EN ? 'Collect flat utilities for ' : 'ប្រមូលថ្លៃទឹកភ្លើងថេរ ខែ ') : (EN ? 'Flat utilities for ' : 'ថ្លៃទឹកភ្លើងថេរ ខែ ')) + (EN && m[2].indexOf('/') < 0 ? 'month ' : '') + m[2] + part; }],
     [/^nợ quá (\d+) ngày$/i, function (m) { return EN ? 'Owed over ' + m[1] + ' days' : 'ជំពាក់លើស ' + m[1] + ' ថ្ងៃ'; }],
-    [/^đã quá hạn (\d+) ngày$/i, function (m) { return EN ? m[1] + ' days overdue' : 'ហួសកំណត់ ' + m[1] + ' ថ្ងៃ'; }],
+    [/^đã quá hạn (\d+) ngày$/i, function (m) { return EN ? m[1] + (m[1] === '1' ? ' day overdue' : ' days overdue') : 'ហួសកំណត់ ' + m[1] + ' ថ្ងៃ'; }],
     [/^hợp đồng (.+) hết hạn (\d+\/\d+(?:\/\d+)?)$/i, function (m) { return EN ? m[1] + '\'s contract ends ' + m[2] : 'កិច្ចសន្យា ' + m[1] + ' ផុតកំណត់ ' + m[2]; }],
     [/^chốt tháng (\d+(?:\/\d{4})?)$/i, function (m) { return (EN ? 'Close month ' : 'បិទបញ្ជីខែ ') + m[1]; }],
     [/^khoán (\S+)\/tháng$/i, function (m) { return EN ? 'Fixed ' + m[1] + '/month' : 'ថេរ ' + m[1] + '/ខែ'; }],
@@ -335,7 +413,9 @@
     [/^đã dọn đi \((\d+)\) ›$/i, function (m) { return EN ? 'Moved out (' + m[1] + ') ›' : 'បានចាកចេញ (' + m[1] + ') ›'; }],
     [/^thu thêm (.+) \/ người \/ tháng, tháng đầu tính theo số ngày ở$/i, function (m) { return EN ? 'Extra ' + m[1] + ' / person / month, the first month by days stayed' : 'បង់បន្ថែម ' + m[1] + ' / នាក់ / ខែ ខែដំបូងគិតតាមចំនួនថ្ងៃស្នាក់នៅ'; }],
     [/^ghi (.+) đã dọn đi\?$/i, function (m) { return EN ? 'Record ' + m[1] + ' as moved out?' : 'កត់ថា ' + m[1] + ' បានចាកចេញ?'; }],
-    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) xác nhận$/u, function (m) { return EN ? 'confirmed by ' + m[1] : m[1] + ' បានបញ្ជាក់'; }]
+    [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) xác nhận$/u, function (m) { return EN ? 'confirmed by ' + m[1] : m[1] + ' បានបញ្ជាក់'; }],
+    // Dòng lịch sử chép từ phòng cũ có " (P.xxx)" ở cuối: dịch phần trước rồi giữ tên phòng (tester 21/11)
+    [/^(.+) \((P\.[^)\s]+)\)$/, function (m) { var t = one(m[1]); return t ? t + ' (' + m[2] + ')' : null; }]
   ];
   var NAME_HEADS = { 'khách': 1 };
   var VI = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i;
@@ -351,7 +431,7 @@
       var hit = dict.get(key);
       return EN && text.length > 2 && text === text.toLocaleUpperCase('vi') ? hit.toUpperCase() : hit;
     }
-    for (var i = 0; i < RULES.length; i++) { var m = text.match(RULES[i][0]); if (m) return RULES[i][1](m); }
+    for (var i = 0; i < RULES.length; i++) { var m = text.match(RULES[i][0]); if (m) { var out = RULES[i][1](m); if (out != null) return out; } }
     // Cụm đã biết đứng đầu, phần sau là tên hoặc mã: "Quản lý Lộc", "Chào Lan"
     var words = text.split(' ');
     for (var n = Math.min(words.length - 1, 6); n >= 1; n--) {
@@ -395,7 +475,7 @@
     if (saved && saved.shown === now) return;
     var result = translate(now), parent = node.parentElement;
     // Chữ không dấu ("Thu", "Chi") trên nút lọc: chỉ dịch khi khớp đúng từ điển
-    if (!result && parent && parent.matches('button, .pill') && !VI.test(now)) {
+    if (!result && parent && parent.matches('button, .pill, .st-head > span, .rp-head > span') && !VI.test(now)) {
       var hit = exact.get(now.trim());
       if (hit) result = now.replace(now.trim(), hit);
     }
