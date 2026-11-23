@@ -47,6 +47,42 @@
   var WEEK = { 'thứ hai': ['MONDAY', 'ថ្ងៃច័ន្ទ'], 'thứ ba': ['TUESDAY', 'ថ្ងៃអង្គារ'], 'thứ tư': ['WEDNESDAY', 'ថ្ងៃពុធ'], 'thứ năm': ['THURSDAY', 'ថ្ងៃព្រហស្បតិ៍'], 'thứ sáu': ['FRIDAY', 'ថ្ងៃសុក្រ'], 'thứ bảy': ['SATURDAY', 'ថ្ងៃសៅរ៍'], 'chủ nhật': ['SUNDAY', 'ថ្ងៃអាទិត្យ'] };
   var EN = col === 1;
   var RULES = [
+    [/^khôi phục bồi thường: (sửa )?(.+)$/i, function (m) { return (EN ? 'Compensation restored: ' : 'ស្ដារសំណងវិញ៖ ') + (m[1] ? (EN ? 'Repair ' : 'ជួសជុល ') : '') + any(m[2]); }],
+    [/^từ chối trước 19\/11 nên khách vẫn trả$/i, function () { return EN ? 'Rejected before 19/11, so the tenant still pays' : 'បដិសេធមុន 19/11 ដូច្នេះអ្នកជួលនៅតែបង់'; }],
+    [/^trừ lại (.+) tiền trả trước$/i, function (m) { return EN ? m[1] + ' taken back from prepaid' : 'កាត់ ' + m[1] + ' ពីប្រាក់បង់មុនវិញ'; }],
+    [/^thông báo: (.+)$/i, function (m) { return (EN ? 'Notice: ' : 'សេចក្ដីជូនដំណឹង៖ ') + m[1]; }],
+    [/^chia ngày: (.+)$/i, function (m) { return (EN ? 'split by days: ' : 'បែងចែកតាមថ្ងៃ៖ ') + daysText(m[1]); }],
+    [/^kỳ này (.+ ngày.*)$/i, function (m) { return (EN ? 'this period ' : 'គ្រានេះ ') + daysText(m[1]); }],
+    [/^tính (\$[\d.,]+|[\d.,]+\s*₫)$/i, function (m) { return (EN ? 'charged ' : 'គិត ') + m[1]; }],
+    [/^dư (.+) trừ vào kỳ sau$/i, function (m) { return EN ? m[1] + ' extra, deducted next period' : 'លើស ' + m[1] + ' កាត់ក្នុងគ្រាក្រោយ'; }],
+    [/^cọc (\S+) → (\S+)(?: \((thu thêm|trả lại khách) (.+)\))?$/i, function (m) { var x = m[3] ? (/^thu/i.test(m[3]) ? (EN ? ' (collect ' + m[4] + ' more)' : ' (ទារបន្ថែម ' + m[4] + ')') : (EN ? ' (return ' + m[4] + ' to tenant)' : ' (សងអ្នកជួល ' + m[4] + ')')) : ''; return (EN ? 'deposit ' : 'ប្រាក់កក់ ') + m[1] + ' → ' + m[2] + x; }],
+    [/^đã đóng khoán (tháng \S+) (.+), chỉ tính (.+) theo số ngày ở$/i, function (m) { return EN ? 'Paid flat ' + any(m[1]).toLowerCase() + ' ' + m[2] + ', charged only ' + m[3] + ' by days stayed' : 'បានបង់ថ្លៃថេរ ' + any(m[1]) + ' ' + m[2] + ' គិតតែ ' + m[3] + ' តាមចំនួនថ្ងៃស្នាក់'; }],
+    [/^đăng ký với chính quyền cho (.+)$/i, function (m) { return EN ? 'Register ' + m[1] + ' with the local authorities' : 'ចុះឈ្មោះ ' + m[1] + ' ជាមួយអាជ្ញាធរមូលដ្ឋាន'; }],
+    [/^chờ (.+) trả khách (.+) cọc dư$/i, function (m) { return EN ? 'Waiting for ' + m[1] + ' to return ' + m[2] + ' extra deposit' : 'រង់ចាំ ' + m[1] + ' សងប្រាក់កក់លើស ' + m[2]; }],
+    [/^trả khách (.+) (\$[\d.,]+|[\d.,]+\s*₫) cọc dư khi chuyển phòng$/i, function (m) { return EN ? 'Return ' + m[2] + ' extra deposit to ' + m[1] + ' (room transfer)' : 'សងប្រាក់កក់លើស ' + m[2] + ' ឱ្យ ' + m[1] + ' (ប្ដូរបន្ទប់)'; }],
+    [/^ở cùng (.+)$/i, function (m) { return (EN ? 'Lives with ' : 'ស្នាក់នៅជាមួយ ') + m[1]; }],
+    [/^lỗ (.+) chuyển sang tháng sau$/i, function (m) { return EN ? 'loss ' + m[1] + ' carried to next month' : 'ខាត ' + m[1] + ' យោងទៅខែក្រោយ'; }],
+    [/^phòng đang phụ trách \((\d+)\)$/i, function (m) { return (EN ? 'Rooms in charge (' : 'បន្ទប់កំពុងទទួលបន្ទុក (') + m[1] + ')'; }],
+    [/^giữ (.+) phụ trách$/i, function (m) { return EN ? 'Keep ' + m[1] + ' in charge' : 'ទុក ' + m[1] + ' ទទួលបន្ទុក'; }],
+    [/^khách đang có hợp đồng \((.+)\)$/i, function (m) { return (EN ? 'The tenant has a contract (' : 'អ្នកជួលកំពុងមានកិច្ចសន្យា (') + any(m[1]) + ')'; }],
+    [/^đã có (\d+) lần$/i, function (m) { return EN ? m[1] + ' time(s) so far' : 'មាន ' + m[1] + ' ដងហើយ'; }],
+    [/^(.+) \(khách chính\)$/i, function (m) { return m[1] + (EN ? ' (main tenant)' : ' (អ្នកជួលចម្បង)'); }],
+    [/^giá thực tế đã mua \/ làm lại \((.+)\)$/i, function (m) { return (EN ? 'Actual cost to buy / replace (' : 'តម្លៃទិញ / ធ្វើថ្មីជាក់ស្ដែង (') + m[1] + ')'; }],
+    [/^khoản trên (.+) phải xin chủ nhà duyệt trước( khi chi)?$/i, function (m) { return EN ? 'Amounts over ' + m[1] + ' need the landlord\'s approval first' : 'ចំនួនលើស ' + m[1] + ' ត្រូវសុំម្ចាស់ផ្ទះអនុម័តជាមុន'; }],
+    [/^số tiền dự kiến \((.+)\)$/i, function (m) { return (EN ? 'Estimated amount (' : 'ចំនួនប្រាក់ប៉ាន់ស្មាន (') + m[1] + ')'; }],
+    [/^đã xác nhận bởi (.+)$/i, function (m) { return (EN ? 'Confirmed by ' : 'បានបញ្ជាក់ដោយ ') + m[1]; }],
+    [/^anh\/chị đã trả trước (.+)$/i, function (m) { return EN ? 'You prepaid ' + m[1] : 'អ្នកបានបង់មុន ' + m[1]; }],
+    [/^sẽ tự trừ vào kỳ tới$/i, function () { return EN ? 'it will be deducted next period automatically' : 'នឹងកាត់ក្នុងគ្រាក្រោយដោយស្វ័យប្រវត្តិ'; }],
+    [/^(\d+) món$/i, function (m) { return m[1] + (EN ? ' items' : ' មុខ'); }],
+    [/^(\d+) loại$/i, function (m) { return m[1] + (EN ? ' types' : ' ប្រភេទ'); }],
+    [/^máy lạnh ×(\d+)$/i, function (m) { return (EN ? 'Air conditioner ×' : 'ម៉ាស៊ីនត្រជាក់ ×') + m[1]; }],
+    [/^hợp đồng và tiền cọc đứng tên khách chính (.+)$/i, function (m) { return EN ? 'The contract and deposit are in the name of the main tenant ' + m[1] : 'កិច្ចសន្យា និងប្រាក់កក់ស្ថិតក្នុងឈ្មោះអ្នកជួលចម្បង ' + m[1]; }],
+    [/^anh\/chị ở cùng phòng, xem được thời hạn và điều khoản$/i, function () { return EN ? 'You share the room and can see the term and clauses' : 'អ្នកនៅបន្ទប់រួម អាចមើលរយៈពេល និងលក្ខខណ្ឌ'; }],
+    [/^khách chính (.+) đứng tên hợp đồng và tiền cọc$/i, function (m) { return EN ? 'Main tenant ' + m[1] + ' holds the contract and deposit' : 'អ្នកជួលចម្បង ' + m[1] + ' ជាអ្នកកាន់កិច្ចសន្យា និងប្រាក់កក់'; }],
+    [/^muốn thêm người thì đề nghị, khách chính đồng ý rồi quản lý duyệt$/i, function () { return EN ? 'To add a person, propose it; the main tenant agrees, then the manager approves' : 'ចង់បន្ថែមមនុស្ស សូមស្នើ អ្នកជួលចម្បងយល់ព្រម បន្ទាប់មកអ្នកគ្រប់គ្រងអនុម័ត'; }],
+    [/^(\d+) người ở \/ tối đa (\d+)$/i, function (m) { return EN ? m[1] + ' living here / max ' + m[2] : 'ស្នាក់ ' + m[1] + ' នាក់ / អតិបរមា ' + m[2]; }],
+    [/^(P\.\S+) (\d+) ngày$/, function (m) { return m[1] + ' ' + m[2] + (EN ? ' days' : ' ថ្ងៃ'); }],
+    [/^(\d+) cần chú ý$/i, function (m) { return EN ? m[1] + ' need attention' : m[1] + ' ត្រូវយកចិត្តទុកដាក់'; }],
     [/^(thứ \S+|chủ nhật), (\d+) tháng (\d+)$/i, function (m) { var d = WEEK[m[1].toLocaleLowerCase('vi')]; return (d ? d[EN ? 0 : 1] : m[1]) + ', ' + m[2] + '/' + m[3]; }],
     [/^tháng (\d+)\/(\d{4})$/i, function (m) { return (EN ? 'Month ' : 'ខែ ') + m[1] + '/' + m[2]; }],
     [/^sửa: (.+)$/i, function (m) { return (EN ? 'Repair: ' : 'ជួសជុល៖ ') + m[1]; }],
@@ -414,10 +450,12 @@
     [/^thu thêm (.+) \/ người \/ tháng, tháng đầu tính theo số ngày ở$/i, function (m) { return EN ? 'Extra ' + m[1] + ' / person / month, the first month by days stayed' : 'បង់បន្ថែម ' + m[1] + ' / នាក់ / ខែ ខែដំបូងគិតតាមចំនួនថ្ងៃស្នាក់នៅ'; }],
     [/^ghi (.+) đã dọn đi\?$/i, function (m) { return EN ? 'Record ' + m[1] + ' as moved out?' : 'កត់ថា ' + m[1] + ' បានចាកចេញ?'; }],
     [/^(\p{Lu}\S*(?: \p{Lu}\S*){0,3}) xác nhận$/u, function (m) { return EN ? 'confirmed by ' + m[1] : m[1] + ' បានបញ្ជាក់'; }],
+    // Tester 22/11: chữ còn sót khi chuyển phòng, chia ngày điện nước, hồ sơ quản lý, form vi phạm / mất đồ / chi
     // Dòng lịch sử chép từ phòng cũ có " (P.xxx)" ở cuối: dịch phần trước rồi giữ tên phòng (tester 21/11)
     [/^(.+) \((P\.[^)\s]+)\)$/, function (m) { var t = one(m[1]); return t ? t + ' (' + m[2] + ')' : null; }]
   ];
   var NAME_HEADS = { 'khách': 1 };
+  function daysText(t) { return String(t).replace(/phòng (\d\S*)/g, 'P.$1').replace(/(\d+) ngày/g, EN ? '$1 days' : '$1 ថ្ងៃ'); }
   var VI = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i;
   // Tên khoản lồng trong câu: thử dịch cả cụm, cả khi viết thường ("tiền thuê tháng 11/2026")
   function any(text) {
@@ -451,7 +489,7 @@
   }
   function translate(raw) {
     // "AMETAA ghi": chữ "ghi" không dấu nhưng là tiếng Việt
-    if (!raw || (!VI.test(raw) && !/(^|\s)ghi( ·|$)/.test(raw))) return null;
+    if (!raw || (!VI.test(raw) && !/(^|\s)ghi( ·|$)/.test(raw) && !/(^|· )QL \S/.test(raw))) return null;
     // Cả câu (giữ dấu chấm, dấu hỏi) có trong từ điển thì dùng luôn
     var whole = raw.trim(), hitWhole = exact.get(whole) || dict.get(whole.toLocaleLowerCase('vi'));
     if (hitWhole) return raw.slice(0, raw.indexOf(whole)) + hitWhole + raw.slice(raw.indexOf(whole) + whole.length);
@@ -475,7 +513,7 @@
     if (saved && saved.shown === now) return;
     var result = translate(now), parent = node.parentElement;
     // Chữ không dấu ("Thu", "Chi") trên nút lọc: chỉ dịch khi khớp đúng từ điển
-    if (!result && parent && parent.matches('button, .pill, .st-head > span, .rp-head > span') && !VI.test(now)) {
+    if (!result && parent && parent.matches('button, .pill, .st-head > span, .rp-head > span, .rd-asset-meta u') && !VI.test(now)) {
       var hit = exact.get(now.trim());
       if (hit) result = now.replace(now.trim(), hit);
     }

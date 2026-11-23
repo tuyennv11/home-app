@@ -986,7 +986,10 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
       var nextTxt = '';
       if (dd) { var d = new Date(), n = new Date(d.getFullYear(), d.getMonth(), Number(dd)); if (n.getTime() < d.setHours(0, 0, 0, 0) + 1 || amt <= 0) n = new Date(n.getFullYear(), n.getMonth() + (n.getTime() <= Date.now() || amt <= 0 ? 1 : 0), Number(dd)); nextTxt = String(n.getDate()).padStart(2, '0') + '/' + String(n.getMonth() + 1).padStart(2, '0'); }
       var repSum = 0; try { (readTenantEventsSafe()[room] || []).forEach(function (e) { if (e && e.kind === 'payment' && (!e.status || e.status === 'Chờ xử lý')) repSum += Number(eventAmount(e)) || 0; }); } catch (x) {}
-      H += '<div class="th-money"><span>Tiền thuê <b>' + esc(rent) + '</b>/tháng</span><span class="' + (amt > 0 && repSum < amt - 0.005 ? 'th-due' : 'th-ok') + '">' + (amt > 0 ? (repSum >= amt - 0.005 ? 'Đã báo ' + esc(amtEl.textContent.trim()) + ' · chờ xác nhận' : 'Cần đóng ' + esc(amtEl.textContent.trim()) + (repSum > 0.005 ? ' · đã báo ' + esc(amountForHouse(repSum, propertyIdForRoom(room))) : '')) : 'Đã đóng đủ' + (nextTxt ? ' · kỳ sau ' + nextTxt : '')) + '</span></div>';
+      H += '<div class="th-money"><span>Tiền thuê <b>' + esc(rent) + '</b>/tháng</span><span class="' + (amt > 0 && repSum < amt - 0.005 ? 'th-due' : 'th-ok') + '">' + (amt > 0 ? (repSum >= amt - 0.005 ? 'Đã báo ' + esc(amtEl.textContent.trim()) + ' · chờ xác nhận' : 'Cần đóng ' + esc(amtEl.textContent.trim()) + (repSum > 0.005 ? ' · đã báo ' + esc(amountForHouse(repSum, propertyIdForRoom(room))) : '')) : 'Đã đóng đủ' + (nextTxt ? ' · kỳ sau ' + nextTxt : '')) + '</span>' + (function () {
+        // Tester 22/11: số tiền trả trước chỉ nằm trong thẻ cũ đang ẩn → hiện ở đầu trang
+        try { var cr = readTenantCredits(), k = acct.join('|'), v = Number(cr[k]) || (typeof householdKey === 'function' ? Number(cr[householdKey(k)]) || 0 : 0); return v > 0.005 ? '<span class="th-credit">Đã trả trước ' + esc(amountForHouse(v, propertyIdForRoom(room))) + ' · sẽ tự trừ vào kỳ tới</span>' : ''; } catch (x) { return ''; }
+      })() + '</div>';
     }
     // Góp ý: nút nhỏ cạnh tiêu đề Việc cần làm, giống chủ nhà / quản lý (không nằm trong Khác)
     var fbBtn = portal.querySelector('.tenant-actions [data-complaint-open]');
@@ -1089,7 +1092,7 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
     try { tenantNotices(acct.join('|')).forEach(function (n) {
       var seen = n.readBy && n.readBy[acct.join('|')];
       if (!seen) return;
-      hist.push({ ts: vt(n.sentAt) || vt(seen), t: 'Thông báo: ' + (n.title || ''), sub: [short(n.sentAt), 'đã xem ' + short(seen)].join(' · '), detail: n.body || '', kind: 'notice' });
+      hist.push({ ts: vt(n.sentAt) || vt(seen), t: 'Thông báo: ' + (n.title || ''), sub: [short(n.sentAt), n.seenGuess ? '' : 'đã xem ' + short(seen)].filter(Boolean).join(' · '), detail: n.body || '', kind: 'notice' });
     }); } catch (e) {}
     hist.sort(function (a, b) { return b.ts - a.ts; });
     var shown = showAll ? hist : hist.slice(0, 5);
@@ -2914,11 +2917,43 @@ if (typeof loginCountry === 'function') window.loginCountry = function () { retu
 // Luật anh chốt 19/11: chủ nhà từ chối chi phí sửa → tự huỷ khoản bồi thường của khách; phần khách đã trả chuyển vào tiền trả trước.
 // Quản lý "Ghi lại chi phí" và được duyệt thì khoản bồi thường ghi lại theo số mới. Chỉ một máy làm (máy trừ tiền trả trước của phòng).
 (function () {
+  var RULE_FROM = new Date(2026, 10, 19).getTime();
+  // Anh chốt 22/11: khoản bồi thường bị huỷ tự động vì lần từ chối trước 19/11 (theo luật cũ khách vẫn trả) → khôi phục, trừ lại phần đã trả vào tiền trả trước
+  function restoreOldCancels() {
+    if (!window.HOME_REAL || typeof creditApplierHere !== 'function') return;
+    var recs = readExpenseRecords(), list = readRentCharges(), changed = false, notes = [];
+    recs.forEach(function (rec) {
+      if (!rec || rec.source !== 'repair' || rec.status !== 'Từ chối' || !rec.room || !creditApplierHere(rec.room)) return;
+      if (parseViTime(rec.rejectedAt) >= RULE_FROM) return;
+      var eid = String(rec.id).replace(/^repair-/, ''), d = list.find(function (c) { return c.period === 'damage-' + eid; });
+      if (!d || d.status !== 'Đã huỷ' || d.cancelReason !== 'Chủ nhà từ chối chi phí sửa' || d.restoredAt) return;
+      var house = d.house || propertyIdForRoom(d.room), amt = Number(rec.amount) || 0, seen = {};
+      if (!(amt > 0)) return;
+      var paid = (d.parts || []).reduce(function (t, q) { var k = q.id || [q.via, q.amount, q.at].join('|'); if (seen[k]) return t; seen[k] = 1; return t + (Number(q.amount) || 0); }, 0);
+      var back = Math.max(0, Number(d.refunded) || 0), credits = readTenantCredits(), have = Math.max(0, Number(credits[d.tenantKey]) || 0);
+      var take = roundForHouse(Math.min(have, back), house), short = roundForHouse(back - take, house), now = new Date().toLocaleString('vi-VN');
+      if (take > 0.005) addTenantCredit(d.tenantKey, -take);
+      if (short > 0.005) { d.parts = (d.parts || []).concat([{ id: 'restore-' + eid, via: 'Hoàn lại tiền trả trước', amount: -short, at: now }]); paid -= short; }
+      d.refunded = roundForHouse(Math.max(0, (Number(d.refunded) || 0) - back), house);
+      d.originalAmount = amt; d.restoredAt = now; delete d.cancelledAt; delete d.cancelReason;
+      if (paid >= amt - 0.005) { d.status = 'Đã thu'; d.amount = amt; } else { d.status = 'Chưa thu'; d.amount = roundForHouse(amt - paid, house); }
+      changed = true; notes.push({ d: d, eid: eid, amt: amt, take: take, short: short, house: house });
+    });
+    if (!changed) return;
+    saveRentCharges(list);
+    notes.forEach(function (x) {
+      appendRoomHistory(x.d.room, { id: 'restore-damage-' + x.eid, kind: 'charge', title: 'Khôi phục bồi thường: ' + String(x.d.title || '').replace(/^Bồi thường /, ''),
+        detail: 'Từ chối trước 19/11 nên khách vẫn trả · ' + amountForHouse(x.amt, x.house) + (x.take > 0.005 ? ' · trừ lại ' + amountForHouse(x.take, x.house) + ' tiền trả trước' : '') + (x.short > 0.005 ? ' · còn nợ ' + amountForHouse(x.short, x.house) : '') + ' · ' + (x.d.tenantName || ''),
+        actor: 'Tự động', tenantName: x.d.tenantName });
+    });
+  }
   function cancelRejectedDamages() {
+    try { restoreOldCancels(); } catch (e) {}
     if (!window.HOME_REAL || typeof creditApplierHere !== 'function') return;
     var recs = readExpenseRecords(), list = readRentCharges(), changed = false, credits = [];
     recs.forEach(function (rec) {
       if (!rec || (rec.source !== 'repair' && rec.source !== 'lost-key') || rec.status !== 'Từ chối' || !rec.room || !creditApplierHere(rec.room)) return;
+      if (!(parseViTime(rec.rejectedAt) >= RULE_FROM)) return; // anh chốt 22/11: luật huỷ chỉ áp cho lần từ chối từ 19/11
       var eid, d;
       if (rec.source === 'lost-key') {
         // Khách mất đồ (tester 20/11): khoản khách trả gắn với khoản chi bằng cùng mốc giờ; bản cũ lệch vài ms → tìm khoản mất đồ cùng phòng, cùng số, gần giờ nhất
@@ -3335,7 +3370,7 @@ function cancelGuest(room, id) {
         var mid = main && (main.uuid || uuidOf(main, users0));
         if (mid) people.push({ id: mid });
         (c.extraPeople || []).forEach(function (p) { if (!p.account || p.leftAt) return; var id = uuidOf(p, users.concat(users0)); if (id && id !== mid) people.push({ id: id, mate: true }); });
-        if (people.length) { var q = readQ(); q.push({ id: 'tl-' + Date.now().toString(36), from: from, to: to, people: people, at: new Date().toLocaleString('vi-VN') }); saveQ(q); setTimeout(run, 1500); }
+        if (people.length) { var q = readQ(); q.push({ id: 'tl-' + Date.now().toString(36), from: from, to: to, people: people, at: new Date().toLocaleString('vi-VN') }); saveQ(q); setTimeout(run, 0); }
       }
     } catch (e) {}
     return r;
@@ -3538,14 +3573,14 @@ window.syncRoomCards = function () {
       try {
         var evAll = JSON.parse(localStorage.getItem('homeTenantEvents') || '{}'), src = evAll[from] || [], dst = evAll[to] || [], names = [before.tenantName].concat((before.extraPeople || []).map(function (p) { return p && p.name; })).filter(Boolean).map(function (n) { return String(n).trim(); });
         var have = {}; dst.forEach(function (e) { if (e && e.id) have[e.id] = 1; if (e && e.origId) have[e.origId] = 1; });
-        var tsOf = function (i) { var v = (/^\d{13}/.test(String(i.id || '')) ? Number(String(i.id).slice(0, 13)) : 0) || Math.min.apply(null, [i.createdAt, i.at, i.time].map(function (x) { return parseViTime(x) || Infinity; })); return Number.isFinite(v) ? v : 0; };
+        var tsOf = function (i) { var v = (/^\d{13}/.test(String(i.id || '')) ? Number(String(i.id).slice(0, 13)) : 0) || Math.min.apply(null, [i.createdAt, i.at, i.time, i.confirmedAt, i.date].map(function (x) { return parseViTime(x) || Infinity; })); return Number.isFinite(v) ? v : 0; };
         var hStart = Number(before.stayFrom) || Math.min(parseViTime(before.createdAt) || Infinity, parseViTime(before.startDate) || Infinity, start || Infinity); if (!Number.isFinite(hStart)) hStart = 0;
         var add = [];
         src.forEach(function (e, n) {
           if (!e || e.origRoom === to || have[e.origId || e.id]) return;
           if (/notice|announce/i.test(String(e.kind || ''))) return;
           if (!e.mateMove && /chuyển (từ|sang) phòng/.test(String(e.title || ''))) return; // dòng chuyển phòng của khách chính đã có ở phòng mới; dòng của người ở cùng thì chép (không thêm tên phòng)
-          var ts = e.origTs || tsOf(e); if (ts && (ts < hStart - 1000 || ts > at - 3000)) return; if (!ts) return;
+          var ts = e.origTs || tsOf(e); if (ts && ((ts < hStart - 1000 && !(e.kind === 'handover' && d0(ts) >= d0(hStart))) || ts > at - 3000)) return; if (!ts) return; // dòng Nhận phòng chỉ có ngày (tester 21/11: khách chính mất dòng này ở phòng mới)
           add.push(Object.assign({}, e, { id: String(ts) + '-moved-' + to + '-' + n, origId: e.origId || e.id, origRoom: e.origRoom || from, origTs: ts, kind: e.kind === 'charge' || e.kind === 'contract' ? e.kind : 'moved', origKind: e.origKind || e.kind, status: e.kind === 'household' ? '' : e.status, title: String(e.title || '') + (e.origRoom || e.mateMove ? '' : ' (' + from + ')') }));
         });
         if (add.length) { evAll[to] = dst.concat(add); localStorage.setItem('homeTenantEvents', JSON.stringify(evAll)); }
@@ -3560,21 +3595,29 @@ window.syncRoomCards = function () {
     } catch (e) {}
     return res;
   };
+  // Hợp đồng chuyển trước khi có stays (chỉ có transferredFrom / transferredAt): suy ra một chặng ở phòng cũ.
+  window.homeStaysOf = function (c) {
+    if (!c) return [];
+    if ((c.stays || []).length) return c.stays;
+    var to = c.transferredFrom ? parseViTime(c.transferredAt) : 0;
+    return to ? [{ room: c.transferredFrom, from: parseViTime(c.startDate) || parseViTime(c.createdAt) || 0, to: to }] : [];
+  };
+  window.homeStayFromOf = function (c) { return c ? (Number(c.stayFrom) || (c.transferredFrom ? parseViTime(c.transferredAt) : 0) || 0) : 0; };
   var baseO = roomOccupiedDays;
   roomOccupiedDays = function (room, month) {
     var r = baseO.apply(this, arguments);
     try {
       var p = month.split('-').map(Number), total = new Date(p[0], p[1], 0).getDate(), first = new Date(p[0], p[1] - 1, 1).getTime(), last = new Date(p[0], p[1] - 1, total).getTime();
       var code = room.code, cks = readCheckouts(), contracts = Object.values(readHomeContracts()).concat(Object.values(cks).map(function (x) { return x && x.contract; })).filter(Boolean);
-      var mine = getHomeContract(code) || (cks[code] && cks[code].contract), touched = contracts.some(function (c) { return (c.stays || []).some(function (s) { return s.room === code; }); });
-      if (!touched && !(mine && mine.stayFrom)) return r;
+      var mine = getHomeContract(code) || (cks[code] && cks[code].contract), touched = contracts.some(function (c) { return homeStaysOf(c).some(function (s) { return s.room === code; }); });
+      if (!touched && !homeStayFromOf(mine)) return r;
       var days = 0, span = function (s, e) { s = Math.max(d0(s), first); e = Math.min(d0(e), last); return e < s ? 0 : Math.floor((e - s) / DAY) + 1; };
-      if (mine && mine.stayFrom) {
-        var ck = cks[code], left = ck && ck.status === 'Đã hoàn cọc' ? parseViTime(ck.tenantConfirmedAt) : 0;
-        days += room.status === 'Đang thuê' ? span(mine.stayFrom, last) : left ? span(mine.stayFrom, left) : 0;
+      if (homeStayFromOf(mine)) {
+        var ck = cks[code], left = ck && ck.status === 'Đã hoàn cọc' ? parseViTime(ck.tenantConfirmedAt) : 0, sf = homeStayFromOf(mine);
+        days += room.status === 'Đang thuê' ? span(sf, last) : left ? span(sf, left) : 0;
       } else days += r.days || 0;
       var seen = {};
-      contracts.forEach(function (c) { (c.stays || []).forEach(function (s) {
+      contracts.forEach(function (c) { homeStaysOf(c).forEach(function (s) {
         var k = [s.room, s.from, s.to].join('|'); if (seen[k] || s.room !== code) return; seen[k] = 1;
         if (d0(s.to) > d0(s.from)) days += span(s.from, d0(s.to) - DAY);
       }); });
@@ -3645,5 +3688,188 @@ window.syncRoomCards = function () {
       if (keep.length !== list.length) { saveRentCharges(keep); return keep; }
     } catch (e) {}
     return r;
+  };
+})();
+
+// Tester 21/11: khách chính chuyển phòng mất dòng "Nhận phòng và tài sản bàn giao" (dòng này chỉ có ngày nên lúc chuyển không được chép).
+// Máy nhân viên lo phòng đó tự chép bù dòng nhận phòng ở phòng cũ sang phòng hiện tại (một lần, theo origId).
+(function () {
+  if (typeof creditApplierHere !== 'function' || typeof readHomeContracts !== 'function') return;
+  function d0(t) { return new Date(t).setHours(0, 0, 0, 0); }
+  function heal() {
+    if (!window.HOME_REAL || !window.__homeDataPulled) return;
+    try {
+      var all = readHomeContracts() || {}, evAll = JSON.parse(localStorage.getItem('homeTenantEvents') || '{}'), changed = false;
+      Object.keys(all).forEach(function (to) {
+        var c = all[to]; if (!c || !creditApplierHere(to)) return;
+        // Hợp đồng chuyển phòng trước 20/11 chỉ ghi transferredFrom / transferredAt (chưa có stays): lấy dòng nhận phòng gần nhất ở phòng cũ trước lúc chuyển
+        var stays = Array.isArray(c.stays) && c.stays.length ? c.stays : c.transferredFrom ? [{ room: c.transferredFrom, from: 0, to: parseViTime(c.transferredAt) || 0, latest: true }] : [];
+        if (!stays.length) return;
+        var dst = evAll[to] || [], have = {};
+        dst.forEach(function (e) { if (e && e.origId) have[e.origId] = 1; if (e && e.kind === 'handover') have.__own = 1; if (e && e.origKind === 'handover') have.__moved = 1; });
+        if (have.__moved) return;
+        stays.forEach(function (st, n) {
+          if (!st || !st.room || st.room === to || have.__moved) return;
+          var src = evAll[st.room] || [];
+          if (st.latest) src = src.filter(function (e) { return e && e.kind === 'handover' && (!st.to || (parseViTime(e.confirmedAt) || parseViTime(e.date)) <= st.to); })
+            .sort(function (x, y) { return (parseViTime(y.confirmedAt) || parseViTime(y.date)) - (parseViTime(x.confirmedAt) || parseViTime(x.date)); }).slice(0, 1);
+          src.forEach(function (e) {
+            if (!e || e.kind !== 'handover' || have[e.id] || have.__moved) return;
+            var ts = parseViTime(e.confirmedAt) || parseViTime(e.date); if (!ts) return;
+            if (d0(ts) < d0(Number(st.from) || 0) || (Number(st.to) && ts > Number(st.to))) return;
+            dst.push(Object.assign({}, e, { id: String(ts) + '-moved-' + to + '-h' + n, origId: e.id, origRoom: st.room, origTs: ts, kind: 'moved', origKind: 'handover', title: String(e.title || '') + ' (' + st.room + ')' }));
+            have.__moved = 1; changed = true;
+          });
+        });
+        if (changed) evAll[to] = dst;
+      });
+      if (changed) localStorage.setItem('homeTenantEvents', JSON.stringify(evAll));
+    } catch (e) {}
+  }
+  setTimeout(heal, 9000); setInterval(heal, 60000);
+})();
+
+// Tester 22/11: chốt tháng sau chuyển phòng. Khoản thu (cọc, tiền thuê) đã chuyển sang phòng mới nhưng thu lúc khách còn ở phòng cũ
+// → tính cho phòng cũ; phòng cũ đã trống (gỡ quản lý) trong tháng khách ở đó → tính cho quản lý đang theo khách, không phải chủ nhà.
+(function () {
+  if (typeof computeSettlement !== 'function' || typeof incomeEntries !== 'function' || typeof readRoomManagerAssignments !== 'function') return;
+  function moved() {
+    var out = [], cks = {}; try { cks = readCheckouts() || {}; } catch (e) {}
+    var all = readHomeContracts() || {};
+    Object.keys(all).forEach(function (room) { var c = all[room], st = homeStaysOf(c); if (st.length) out.push({ room: room, c: c, stays: st, from: homeStayFromOf(c) }); });
+    Object.keys(cks).forEach(function (room) { var c = cks[room] && cks[room].contract, st = homeStaysOf(c); if (st.length && !all[room]) out.push({ room: room, c: c, stays: st, from: homeStayFromOf(c) }); });
+    return out;
+  }
+  function roomAt(m, t) {
+    var st = m.stays.slice().sort(function (a, b) { return a.from - b.from; });
+    for (var i = 0; i < st.length; i++) if (t < st[i].to) return st[i].room;
+    return m.room;
+  }
+  var baseI = incomeEntries;
+  incomeEntries = function (houseId) {
+    var list = baseI.apply(this, arguments);
+    try {
+      var ms = moved(); if (!ms.length) return list;
+      var keys = {};
+      readRentCharges().forEach(function (it) {
+        (typeof chargeParts === 'function' ? chargeParts(it) : it.parts || []).forEach(function (pt) {
+          var t = parseViTime(pt.at || it.paidAt); if (t) keys[it.room + '|' + t + '|' + Math.abs(Number(pt.amount) || 0).toFixed(2)] = 1;
+        });
+      });
+      list.forEach(function (e) {
+        var m = ms.find(function (x) { return x.room === e.room; }); if (!m || !m.from || !e.time || e.time >= m.from - 1000) return;
+        if (!keys[e.room + '|' + e.time + '|' + Math.abs(Number(e.amount) || 0).toFixed(2)]) return; // chỉ khoản thu theo hợp đồng đã chuyển
+        var r = roomAt(m, e.time); if (!r || r === e.room) return;
+        if (String(e.label || '').indexOf(e.room + ' · ') === 0) e.label = r + String(e.label).slice(e.room.length);
+        e.room = r;
+      });
+    } catch (err) {}
+    return list;
+  };
+  var baseA = readRoomManagerAssignments, inSettle = null;
+  readRoomManagerAssignments = function () {
+    var a = baseA.apply(this, arguments);
+    if (!inSettle) return a;
+    try {
+      var p = inSettle.split('-').map(Number), first = new Date(p[0], p[1] - 1, 1).getTime(), end = new Date(p[0], p[1], 1).getTime(), add = {};
+      moved().forEach(function (m) {
+        var who = a[m.room]; if (!who) return;
+        m.stays.forEach(function (s) { if (!a[s.room] && !add[s.room] && s.to > first && s.from < end) add[s.room] = who; });
+      });
+      if (Object.keys(add).length) a = Object.assign({}, a, add);
+    } catch (e) {}
+    return a;
+  };
+  var baseC = computeSettlement;
+  computeSettlement = function (houseId, month) {
+    var prev = inSettle; inSettle = month;
+    try { return baseC.apply(this, arguments); } finally { inSettle = prev; }
+  };
+})();
+
+// Tester 22/11: chuyển phòng tạo biên bản giao phòng mới không có món nào (tab Hợp đồng khách ghi "0 món").
+// Điền các món đang có của phòng mới (theo danh sách tài sản phòng), giữ ghi chú "cần kiểm lại tài sản phòng mới".
+(function () {
+  if (typeof readHandoverRecords !== 'function' || typeof readRoomInventory !== 'function') return;
+  function units(inv) {
+    return (inv || []).flatMap(function (item) {
+      if (!item || !item.name) return [];
+      var n = Math.min(20, Math.max(1, Number(item.quantity) || 1)), base = n > 1 ? String(item._base || item.name) : String(item._base || String(item.name).replace(/ \d{1,2}$/, ''));
+      return Array.from({ length: n }, function (_, k) {
+        return Object.assign({}, item, { _base: base, name: n > 1 ? base + ' ' + (k + 1) : item.name, expected: 1, actual: 1, condition: item.condition || 'Hoạt động tốt', remainingPct: item.remainingPct, brand: item.brand || '', note: '' });
+      });
+    });
+  }
+  function fill() {
+    try {
+      if (document.body.dataset.role === 'tenant' || (window.HOME_REAL && !window.__homeDataPulled)) return;
+      var list = readHandoverRecords(), changed = false;
+      list.forEach(function (h) {
+        if (!h || h.type !== 'Giao phòng' || (h.items || []).length || !/^Chuyển từ phòng /.test(String(h.note || ''))) return;
+        var got = units(readRoomInventory(h.room)); if (!got.length) return;
+        h.items = got; changed = true;
+      });
+      if (changed) localStorage.setItem('homeInventoryRecords', JSON.stringify(list));
+    } catch (e) {}
+  }
+  if (typeof transferTenant === 'function') {
+    var base = transferTenant;
+    transferTenant = function () { var r = base.apply(this, arguments); fill(); return r; };
+  }
+  setTimeout(fill, 10000); setInterval(fill, 60000);
+})();
+
+// Tester 22/11: người ở cùng chuyển phòng theo khách chính nhưng hồ sơ không có dòng "Chuyển từ phòng X sang Y".
+// Máy chủ nhà (chỉ chủ nhà gửi người dùng lên) thêm dòng đó, lấy giờ chuyển trong hợp đồng phòng mới.
+(function () {
+  if (typeof readUsers !== 'function' || typeof saveUsers !== 'function') return;
+  function heal() {
+    try {
+      if (document.body.dataset.role !== 'owner' || (window.HOME_REAL && !window.__homeDataPulled)) return;
+      var users = readUsers(), cs = readHomeContracts() || {}, changed = false;
+      users.forEach(function (u) {
+        if (!u || u.role !== 'tenant' || u.status === 'Đã xoá' || u.movedTo) return;
+        var c = cs[u.room], from = c && c.transferredFrom; if (!from || !c.transferredAt) return;
+        if (!users.some(function (x) { return x !== u && x.room === from && x.movedTo && ((u.uuid && x.uuid === u.uuid) || x.name === u.name); })) return;
+        var text = 'Chuyển từ phòng ' + from + ' sang ' + u.room;
+        if ((u.history || []).some(function (h) { return h && h.text === text; })) return;
+        u.history = [{ at: c.transferredAt, by: c.transferredBy || '', text: text }].concat(Array.isArray(u.history) ? u.history : []);
+        changed = true;
+      });
+      if (changed) saveUsers(users);
+    } catch (e) {}
+  }
+  setTimeout(heal, 11000); setInterval(heal, 60000);
+})();
+
+// Tester 22/11: số "Lịch sử N" / "Việc cần xử lý N" nhảy lên xuống khi máy chưa tải xong dữ liệu → ẩn số tới khi tải xong (tối đa 20 giây).
+(function () {
+  if (!window.HOME_REAL) return;
+  var t0 = Date.now();
+  document.documentElement.classList.add('home-loading');
+  var iv = setInterval(function () {
+    if (window.__homeDataPulled || Date.now() - t0 > 20000) { document.documentElement.classList.remove('home-loading'); clearInterval(iv); }
+  }, 400);
+})();
+
+// Tester 22/11: Sổ thu chi vẫn ghi "P.402 · Trong đó tiền cọc" cho cọc thu lúc khách còn ở phòng cũ → ghi phòng cũ (giống chốt tháng).
+(function () {
+  if (typeof collectFinanceItems !== 'function') return;
+  var base = collectFinanceItems;
+  collectFinanceItems = function () {
+    var items = base.apply(this, arguments);
+    try {
+      var cs = readHomeContracts() || {};
+      items.forEach(function (it) {
+        if (!it || it.kind !== 'income' || !it.room || !/ · Trong đó tiền cọc/.test(String(it.title || ''))) return;
+        var c = cs[it.room], sf = homeStayFromOf(c), t = Number(it.time) || parseViTime(it.time); if (!sf || !t || t >= sf - 1000) return;
+        var st = homeStaysOf(c).slice().sort(function (a, b) { return a.from - b.from; }), r = '';
+        for (var i = 0; i < st.length; i++) if (t < st[i].to) { r = st[i].room; break; }
+        if (!r || r === it.room) return;
+        if (String(it.title).indexOf(it.room + ' · ') === 0) it.title = r + String(it.title).slice(it.room.length);
+        it.room = r; if (it.target && it.target.room) it.target = Object.assign({}, it.target, { room: r });
+      });
+    } catch (e) {}
+    return items;
   };
 })();

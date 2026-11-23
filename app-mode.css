@@ -303,8 +303,16 @@ body.tr-on .phone .tabs .tab[data-id=requests]{display:flex!important}
 .hh-links .link-btn{padding:4px 0}
 
 .user-info-row>span:first-child{flex:0 0 auto;white-space:nowrap}
+/* Dòng "Khách đánh giá (90 ngày)": chữ dài hơn 45% thì xuống dòng, không đè số bên phải (tester 22/11) */
+.user-info-row.rate-row>span:first-child{flex:0 1 auto;white-space:normal;max-width:50%}
+.user-info-row.rate-row{gap:10px;align-items:center}
 .user-info-row>strong{min-width:0;overflow-wrap:anywhere;text-align:right}
 .user-card.is-muted{opacity:.55}
 /* Hộp xác nhận: tên khoản dài (Phụ phí N người ở thêm…) xuống dòng, không đè số tiền (tester 18/11) */
 .confirm-info .user-info-row>span:first-child{flex:1 1 0;min-width:35%;white-space:normal;overflow-wrap:anywhere}
 .confirm-info .user-info-row>strong{flex:0 1 auto;max-width:65%;white-space:normal;overflow-wrap:anywhere}
+
+:is(#tenantHome2,#tenantReq) .th-money{flex-wrap:wrap}
+:is(#tenantHome2,#tenantReq) .th-credit{flex-basis:100%;font-size:12px;color:#2f6b4f;margin-top:-4px}
+
+.home-loading .work-head .work-count{visibility:hidden}
