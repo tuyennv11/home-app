@@ -316,3 +316,32 @@ body.tr-on .phone .tabs .tab[data-id=requests]{display:flex!important}
 :is(#tenantHome2,#tenantReq) .th-credit{flex-basis:100%;font-size:12px;color:#2f6b4f;margin-top:-4px}
 
 .home-loading .work-head .work-count{visibility:hidden}
+
+/* Soát giao diện 23/11 (anh chốt sửa mức vừa), giữ nguyên kiểu đá sẵn có */
+/* 1. Chữ phụ: to hơn chút, đậm màu hơn cho dễ đọc (độ tương phản ≥ 4.5:1) */
+html.app-mode .phone :is(.work-sub,.user-sub,.rb-status,.history-amount,.note,.notice-item small,.fin-card span){font-size:12px !important;color:#5b615c !important}
+html.app-mode .phone .pill{font-size:11px}
+html.app-mode .phone .pill-count{font-size:9.5px}
+/* 2. Nút nhỏ: nới vùng bấm vô hình ra quanh nút, hình nút giữ nguyên */
+html.app-mode .phone :is(.ht-add,.ht-gear,.ht-num,.ht-name,.app-fb-open,.work-action,.work-more,.rb-link,.report-link,.pill,.lang-pill,.bell,[data-head-notices]){position:relative;touch-action:manipulation}
+html.app-mode .phone :is(.ht-add,.ht-gear,.ht-num,.ht-name,.app-fb-open,.work-action,.work-more,.rb-link,.report-link,.pill,.lang-pill,.bell,[data-head-notices])::before{content:'';position:absolute;inset:-9px -3px}
+/* 3. Thanh dưới: có chữ dưới biểu tượng */
+html.app-mode .phone .tabs .tab{flex-direction:column !important;gap:1px !important;height:54px !important;width:max-content;min-width:56px;max-width:86px;padding:0 4px !important;flex:0 0 auto !important;font-size:10px !important;font-weight:600;line-height:1.1;white-space:nowrap;overflow:visible;border-radius:12px !important;align-items:center}
+html.app-mode .phone .tabs{padding-left:8px !important;padding-right:8px !important;height:auto !important;min-height:62px}
+html.app-mode .phone .tabs .tab i{height:32px !important;width:44px !important;flex:none}
+html.app-mode .phone .content{padding-bottom:calc(62px + 14px + 20px + env(safe-area-inset-bottom)) !important}
+/* 4. Bản web trên màn rộng: giữa màn, rộng như điện thoại */
+@media (min-width:700px){
+  html.app-mode body{background:#e9e1d4}
+  html.app-mode .phone{max-width:480px;margin:0 auto;box-shadow:0 0 0 1px #e0d6c6,0 18px 60px #3a2a1424}
+}
+/* Nút "Trả trước" ở thẻ thanh toán của khách (anh chốt 23/11) */
+.tenant-prepay{margin-top:10px;min-height:36px;padding:8px 16px;border:0;border-radius:999px;background:#fcf8f3;color:#0f3527;font-weight:700;font-size:13px;touch-action:manipulation;cursor:pointer}
+.th-money .tenant-prepay{margin-top:8px;align-self:flex-start;background:#0f3527;color:#fff}
+
+/* Bộ lọc phòng: ô "Trống" đang chọn đủ tương phản (axe 24/11: 3,9 → 5,3) */
+.ht-num.vacant.selected { color: #8a5216; }
+
+/* Tester 25/11 lượt 3: nút "Người ở cùng" ở chi tiết phòng là nút, không còn chữ gạch chân */
+/* Tester 25/11 lượt 4: cùng cỡ với các nút khác ở chi tiết phòng (Chuyển phòng, Ghi biên bản vi phạm…) */
+.rd-hh-btn{display:block;width:100%;margin:8px 0 0;padding:10px 12px;border:1px solid var(--line,#e4e0d8);border-radius:12px;background:var(--card,#fff);color:#0f3527;font:inherit;font-size:13px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer;min-height:40px}
