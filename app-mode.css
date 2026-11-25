@@ -345,3 +345,9 @@ html.app-mode .phone .content{padding-bottom:calc(62px + 14px + 20px + env(safe-
 /* Tester 25/11 lượt 3: nút "Người ở cùng" ở chi tiết phòng là nút, không còn chữ gạch chân */
 /* Tester 25/11 lượt 4: cùng cỡ với các nút khác ở chi tiết phòng (Chuyển phòng, Ghi biên bản vi phạm…) */
 .rd-hh-btn{display:block;width:100%;margin:8px 0 0;padding:10px 12px;border:1px solid var(--line,#e4e0d8);border-radius:12px;background:var(--card,#fff);color:#0f3527;font:inherit;font-size:13px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer;min-height:40px}
+
+/* Hàng lọc Người dùng (25/11, anh báo iPhone): 4 ô bằng nhau làm chữ "Khách thuê" đẩy số ra ngoài, bị ô bên cạnh che.
+   Mỗi ô rộng theo chữ của nó, chia phần còn dư; hẹp quá thì kéo ngang */
+.pills:has(> [data-user-filter]){display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.pills:has(> [data-user-filter])::-webkit-scrollbar{display:none}
+.pills:has(> [data-user-filter]) > .pill{flex:1 0 auto}
